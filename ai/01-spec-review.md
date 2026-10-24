@@ -193,3 +193,63 @@ Q1, Q5, Q6, Q8, Q10, Q14, Q15, Q16, Q17, Q18, the rest of the minor fixes, and t
 - **Q18:** keep the `engines` range consistent with the `.nvmrc` version, e.g. `.nvmrc` = `22`, engines `>=22 <23`.
 
 I didn't change any files.
+
+---
+
+## Prompt 3
+
+> Changes are not applied to file yet, I want to resolve everything first and only then apply fixes. About new contradictions:
+>
+> 1: test:func is not part of npm run check until the first DB lab (checks.md marks it). DoD: /health and /version are covered by smoke + unit tests. Lab 1 unit test: GIT_SHA fallback.
+> 2: PAID comes with payments (out of scope). Active booking = RESERVED for now.
+> 3: GIT_SHA is read from the environment at startup, set by CI / start script as `git rev-parse --short=7 HEAD`. AC-2: unit test (set → value, unset → "unknown") + manual run with GIT_SHA set.
+> 4: Exceptions written into the rule: any module may import shared; shared imports no module and not app. app may import modules' index.ts and their infrastructure adapters to wire ports; modules must not import app.
+> 5: Layer-violation check uses temporary files. Structure AC checks exactly src/app, src/shared, 6 × index.ts. http may not import domain.
+> 6: spec-format now allows "design only" sections. Q13 deferrals are in Out of scope.
+> 7: Three ADRs: 0001 modular monolith, 0002 Fastify, 0003 Drizzle (accepted, applied from the first DB lab).
+> 8: Branch protection on main requires CI. AC-8 now also checks that a red PR can't be merged.
+>
+> Does this resolve all contradictions and doesn't create a new one?
+
+## Answer 3
+
+Almost. Six of your eight answers resolve their contradiction cleanly, but answers 3, 4 and 8 leave gaps or create new conflicts. Below, by point:
+
+### Gaps to close
+
+**1. Functional tests: three more places need updating.** You've decided `checks.md` marks `test:func` as "from the first DB lab". These lines also need the same change:
+- `checks.md:20`: "CI: full `npm run check`, with PostgreSQL as a service container".
+- `definition-of-done.md:7`: lists "functional tests" in `npm run check`.
+- `definition-of-done.md:16`: says every new user flow needs a functional test with a real DB. It needs the exception you described: flows that don't touch the DB can be covered by smoke and unit tests.
+- `checks.md:11`: the smoke test row says `GET /health → 200`. Per Q10, it should also check the body.
+
+**3. `GIT_SHA`: two small fixes.**
+- FR-2 still says "SHA of the running build". Reword it, e.g. "the commit SHA from `GIT_SHA`, or `"unknown"` if unset".
+- `--short=7` means *at least* 7 characters. Git still lengthens it if the prefix is ambiguous. It works in practice, and the CI script and the AC-2 manual check both use the same command, so they stay consistent. Just don't describe it as "exactly 7".
+
+**4. `app` → modules: one new conflict.**
+- Spec line 26 says "a module is used by others only through its `index.ts`", but `app` now imports `infrastructure` directly. Reword it to "used by **other modules** only through its `index.ts`". The DoD already says "modules import each other", so it's fine.
+- **New gap:** how does `app` register a module's HTTP routes? Under Q12, `index.ts` exports "application services and types". So either `index.ts` also exports a Fastify plugin from `http`, or `app` may import `http` too. Pick one; the dependency-cruiser rule depends on it.
+- Say explicitly that `app` may import `shared`.
+- **Consequence of "http may not import domain":** domain errors (e.g. seat taken → `409`) and DTOs have to reach `http` through `application`. That's fine, but ADR 0001 should mention it.
+
+**5. "Exactly" in the structure AC is too strict.** Make it "at least, and no other modules". Otherwise:
+- the server entry point (`main.ts` / `server.ts`) must live inside `src/app/`, or the AC fails;
+- does `src/shared/` need an `index.ts`?
+- the temporary layer-violation files must be deleted before the structure check runs, or they break "exactly".
+
+**6. Watch the 1-page limit** (`spec-format.md:7`). There will be about 6 new ACs (≈14 total) plus the design-only Data and Scenarios sections, so the spec may no longer fit on one page.
+
+**7. Make sure an ADR covers the layering decisions.** You first said 0001 would be "modular monolith + layering"; now it's just "modular monolith". ADR 0001 should still cover the layering rules and the `src/app` composition root, or they need an ADR of their own. Also: does 0003 Drizzle cover PostgreSQL, or is that a separate decision?
+
+**8. Branch protection: two practical problems.**
+- **On GitHub Free, branch protection and rulesets aren't enforced for private repos.** If the repo is private on a free plan, AC-8 can't pass. Is the repo public, or on Pro/Education?
+- **As the repo owner, you're an admin and can bypass protection by default.** "A red PR can't be merged" only holds if you turn on "Do not allow bypassing the above settings".
+- NFR-5 only says "CI runs on every PR". Add "and is required to merge", so AC-8's new check covers a stated requirement.
+
+### Resolved cleanly
+
+- **2:** "Active = RESERVED" fits the spec's rule that an active booking has at least one seat and a cancelled one has none.
+- **The remaining items:** the design-only allowance, moving the deferrals to Out of scope, and the Fastify ADR.
+
+Once you settle the open choices here (route registration in 4, "exactly" in 5, repo visibility/plan in 8), I don't see anything else conflicting. I didn't change any files.
