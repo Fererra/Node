@@ -11,7 +11,7 @@ A TypeScript + Fastify project with a working quality pipeline and a module stru
 ## Functional requirements
 
 - FR-1: `GET /health` returns `200 { "status": "ok" }` without a database.
-- FR-2: `GET /version` returns `{ "sha": "<sha>" }` from the `GIT_SHA` env variable read at startup, or `"unknown"` if unset or empty. `GIT_SHA` is set by `npm start` (a Node launcher, `scripts/start.mjs`, that runs `git rev-parse --short=7 HEAD`). The launcher keeps an existing `GIT_SHA` and, if `git rev-parse` fails, leaves it unset and still starts the server.
+- FR-2: `GET /version` returns `{ "sha": "<sha>" }` from the `GIT_SHA` env variable read at startup, or `"unknown"` if unset or empty. `GIT_SHA` is set by `npm start` (a Node launcher, `scripts/start.mjs`, that runs `git rev-parse --short=7 HEAD`). The launcher keeps an existing non-empty `GIT_SHA` and, if `git rev-parse` fails, leaves it unset and still starts the server.
 
 ## Non-functional requirements
 
@@ -50,7 +50,7 @@ ER: [`docs/architecture.md#data`](../docs/architecture.md#data). All ids are UUI
 - AC-4 (covers NFR-2, NFR-3): a type error or implicit `any` blocks the push — check: push such a file.
 - AC-5 (covers NFR-3): a bad commit message is rejected — check: `git commit -m "stuff"`.
 - AC-6 (covers NFR-4): no violations, no cycles — check: `npm run deps:check`.
-- AC-7 (covers NFR-4): forbidden imports fail — check: add each temporary import, (a) an `import type` from `showtimes/application/…` (not `index.ts`) in `bookings/application`, (b) an `import type` from `bookings/index.ts` in `movies/application`, (c) `domain → infrastructure`, (d) `shared → movies`, (e) `movies → app`, (f) `bookings/http → showtimes`, (g) a value (non-type) import of `showtimes` in `bookings/application`; `npm run deps:check` exits non-zero for each.
+- AC-7 (covers NFR-4): forbidden imports fail — check: add each temporary import, (a) an `import type` from `showtimes/application/…` (not `index.ts`) in `bookings/application`, (b) an `import type` from `bookings/index.ts` in `movies/application`, (c) `domain → infrastructure`, (d) `shared → movies`, (e) `movies → app`, (f) `bookings/http → showtimes`, (g) a value (non-type) import of `showtimes` in `bookings/application`, (h) `import 'fastify'` in `movies/domain`; `npm run deps:check` exits non-zero for each.
 - AC-8 (covers NFR-5): CI blocks bad code — check: a PR with a lint error is red and can't be merged; the lab PR is green; the workflow uses `node-version-file: .nvmrc`.
 - AC-9 (covers NFR-6): structure matches — check: `src/` has only `app/`, `shared/`, `modules/`; `modules/` has exactly the 6 modules, each with `index.ts` exporting `create<Name>Module`; `app` creates all 6 and the smoke test starts the app.
 
