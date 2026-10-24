@@ -21,4 +21,8 @@ describe('GET /version', () => {
   it('returns "unknown" when GIT_SHA is unset', async () => {
     expect(await getVersion({})).toEqual({ sha: 'unknown' });
   });
+
+  it('returns "unknown" when GIT_SHA is empty', async () => {
+    expect(await getVersion({ GIT_SHA: '' })).toEqual({ sha: 'unknown' });
+  });
 });
