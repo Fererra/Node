@@ -11,7 +11,7 @@ A TypeScript + Fastify project with a working quality pipeline and a module stru
 ## Functional requirements
 
 - FR-1: `GET /health` returns `200 { "status": "ok" }` without a database.
-- FR-2: `GET /version` returns `{ "sha": "<sha>" }` from the `GIT_SHA` env variable read at startup, or `"unknown"` if unset. `GIT_SHA` is set by CI and by `npm start` (a Node launcher, `scripts/start.mjs`, that runs `git rev-parse --short=7 HEAD`). The launcher keeps an existing `GIT_SHA` and, if `git rev-parse` fails, leaves it unset and still starts the server.
+- FR-2: `GET /version` returns `{ "sha": "<sha>" }` from the `GIT_SHA` env variable read at startup, or `"unknown"` if unset or empty. `GIT_SHA` is set by `npm start` (a Node launcher, `scripts/start.mjs`, that runs `git rev-parse --short=7 HEAD`). The launcher keeps an existing `GIT_SHA` and, if `git rev-parse` fails, leaves it unset and still starts the server.
 
 ## Non-functional requirements
 
@@ -27,7 +27,7 @@ A TypeScript + Fastify project with a working quality pipeline and a module stru
 ### Modules
 
 `auth`, `users`, `movies`, `seats`, `showtimes`, `bookings` in `src/modules/`, plus `src/shared/` and `src/app/` (composition root, `/health`, `/version`).
-Graph and rules: [`docs/architecture.md`](../docs/architecture.md). In Lab 1 a module is just `index.ts` with an empty `create<Name>Module` factory.
+Graph and rules: [`docs/architecture.md`](../docs/architecture.md). In Lab 1 a module is just `index.ts` with a `create<Name>Module()` factory that takes no arguments; `deps` appear with the first port.
 
 ### Data (design only — bookings lab)
 
@@ -45,7 +45,7 @@ ER: [`docs/architecture.md#data`](../docs/architecture.md#data). All ids are UUI
 ## Acceptance criteria
 
 - AC-1 (covers FR-1): `/health` returns `200 { "status": "ok" }` without `DATABASE_URL` — check: smoke test.
-- AC-2 (covers FR-2): `/version` returns `GIT_SHA` or `"unknown"` — check: unit test for both cases; manually `npm run build && npm start`, then `curl /version` equals `git rev-parse --short=7 HEAD`.
+- AC-2 (covers FR-2): `/version` returns `GIT_SHA` or `"unknown"` — check: unit test for set, unset and empty; manually `npm run build && npm start`, then `curl /version` equals `git rev-parse --short=7 HEAD`.
 - AC-3 (covers NFR-1, NFR-3): bad formatting or a lint warning blocks the commit — check: commit a misformatted file, then a file with an unused variable; the hook exits non-zero.
 - AC-4 (covers NFR-2, NFR-3): a type error or implicit `any` blocks the push — check: push such a file.
 - AC-5 (covers NFR-3): a bad commit message is rejected — check: `git commit -m "stuff"`.
