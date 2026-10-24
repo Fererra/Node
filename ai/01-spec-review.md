@@ -371,3 +371,39 @@ These items are fixed and consistent:
 The spec is now short enough that the 1-page limit looks fine.
 
 Items 1 and 2 are the real conflicts, and items 3 and 4 would block the lab PR or local dev.
+
+---
+
+## Prompt 6
+
+> Okay, all fixed now. ADR wil be done after all md files are ready, so don't count them as a gap
+
+## Answer 6
+
+Nearly done. Most of round 5 is fixed, but two minor items are still open, and the new launcher raises two small questions. I re-read all 6 modified files and didn't change any files. As you asked, I'm not counting the ADRs.
+
+### Still open from round 5
+
+1. **AC-7 (b) is still ambiguous** (spec line 45). You made case (a) precise, but (b) `movies → bookings` still doesn't say where the import comes from or what kind it is. If the temporary import sits in `movies/http`, or is a value import, `deps:check` fails because of the layer or type-only rule. The "only graph dependencies" rule would then never actually be tested. Suggested wording: "(b) an `import type` from `bookings/index.ts` in `movies/application`". Cases (c)–(g) are fine: each one breaks exactly one rule wherever the import is placed.
+
+2. **Two docs still don't mention the rules in `architecture.md`:**
+   - `standards/spec-format.md:9` says "Shared architecture (module graph, ER)". Add "rules".
+   - `README.md:41` says "module graph and ER diagram". Add "rules".
+
+### New, small
+
+3. **The launcher `scripts/start.mjs` falls outside the lint and fallback rules.**
+   - It lives outside `src/`, which AC-9 allows. But make sure ESLint and Prettier also cover `scripts/`. `tsc` won't type-check a `.mjs` file, which is fine.
+   - It should start the server even when `git rev-parse` fails, e.g. outside a git repo. In that case it should leave `GIT_SHA` unset, so `/version` returns `"unknown"` per FR-2, instead of crashing.
+
+4. **AC-2's manual check probably needs a build first.** If `npm start` runs the build output, the check needs `npm run build` before it. Say so in AC-2, or make `npm start` build first.
+
+### Resolved
+
+- **`deps` typing:** ports live in `application/ports/`, and `index.ts` imports nothing from other modules.
+- **AC-7:** now has a `— check:` part, and (a) is precise.
+- **Windows start:** handled by the Node launcher, and AC-2 now uses it.
+- **`architecture.md:3`:** says "earlier project" again.
+- **Factory check:** AC-9 now checks the factory, that `app` creates all 6 modules, and that the smoke test starts the app.
+
+I don't see any contradictions left. Items 1 and 2 are one-line edits, and 3–4 are implementation notes you could also handle while building.
