@@ -1,0 +1,45 @@
+{
+  "name": "cinema-booking-service",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Backend for booking cinema tickets",
+  "type": "module",
+  "engines": {
+    "node": ">=26 <27"
+  },
+  "scripts": {
+    "start": "node scripts/start.mjs",
+    "check": "npm run format:check && npm run lint && npm run check:fast",
+    "check:fast": "npm run typecheck && npm run deps:check && npm run test && npm run build",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint . --max-warnings 0",
+    "typecheck": "tsc --noEmit",
+    "deps:check": "depcruise src --config .dependency-cruiser.mjs",
+    "test": "vitest run",
+    "build": "tsc -p tsconfig.build.json",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*": "prettier --check --ignore-unknown",
+    "*.{ts,mts,cts,js,mjs,cjs}": "eslint --max-warnings 0 --no-warn-ignored"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "21.2.4",
+    "@commitlint/config-conventional": "21.2.4",
+    "@eslint/js": "10.0.1",
+    "@types/node": "26.6.5",
+    "dependency-cruiser": "18.7.0",
+    "eslint": "10.13.0",
+    "globals": "17.13.0",
+    "husky": "9.1.7",
+    "lint-staged": "17.6.0",
+    "prettier": "3.9.10",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.72.0",
+    "vitest": "5.0.5"
+  },
+  "dependencies": {
+    "fastify": "5.12.7"
+  }
+}
