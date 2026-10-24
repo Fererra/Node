@@ -318,3 +318,56 @@ Everything else from rounds 1–3 is on disk and consistent:
 - **ACs:** AC-7 (d) and (e) added; the AC format follows the standard.
 
 Items 1 and 2 are the ones that would actually break something. The rest are wording and coverage fixes.
+
+---
+
+## Prompt 5
+
+> All previous gaps are fixed, please, review everything again
+
+## Answer 5
+
+Your round-4 fixes are all in place. This pass found one new rule conflict, one AC that breaks the binding format, and one practical problem with `GIT_SHA` on Windows. The ADRs are also still missing. I re-read all 6 modified files plus `adr-template.md`, and didn't change any files.
+
+### Must fix
+
+**1. The rules forbid the `deps` type that `index.ts` needs** (`docs/architecture.md:25-29`).
+- Line 25 says only `application` may depend on another module.
+- Line 26 says `create<Name>Module(deps)` receives other modules' services. So `createBookingsModule`'s `deps` parameter needs types like `ShowtimesService`.
+- If `bookings/index.ts` imports that type from `showtimes/index.ts` itself, it breaks line 25, and dependency-cruiser will flag it.
+
+Pick one:
+- **Option A:** `deps` is typed with ports declared in `bookings/application/ports/`. Those ports `import type` from `showtimes`, so `index.ts` never touches another module.
+- **Option B:** `index.ts` may `import type` from other modules too.
+
+**2. AC-7 has no `— check:` part.** It reads "`deps:check` fails on temporary imports: (a)…(g)", which is the same problem as the old AC-6/AC-8 that Q6 fixed. Example rewrite: `AC-7 (covers NFR-4): forbidden imports fail — check: add each temporary import (a)–(g); npm run deps:check exits non-zero for each`.
+
+**3. The ADRs still don't exist.** `adr/` is missing, `README.md:43` links to it, and `definition-of-done.md:23` requires the ADRs. I'm assuming they're still your planned next step. When you write ADR 0001, include the factory and `deps` design: it's the least obvious decision in the docs.
+
+### Practical issue
+
+**4. A `GIT_SHA` start script won't work on Windows.** FR-2 says the start script sets `GIT_SHA` via `git rev-parse`. On Windows, npm runs scripts in `cmd.exe`, so `GIT_SHA=$(git rev-parse --short=7 HEAD) node …` fails there, and you develop on Windows. `cross-env` can't do command substitution either. Options:
+- a tiny Node launcher script that runs `git rev-parse` and then starts the server;
+- set `script-shell` to Git Bash in `.npmrc`;
+- leave the start script out, and say `GIT_SHA` is set only by CI and by hand.
+
+### Minor
+
+5. **`architecture.md` now holds rules, but two docs don't say so.** Its own line 4 lists "rules", but `spec-format.md:9` still says "(module graph, ER)" and `README.md:41` says "module graph and ER diagram". Add "rules" to both.
+6. **Each AC-7 temporary import should break exactly one rule.** As written, (b) `movies → bookings` doesn't say which layer it comes from or whether it's `import type`. If it comes from `http` or is a value import, it fails for a different reason, and the "not in graph" rule is never actually tested. Specify it as "`import type` from `movies/application` to `bookings/index.ts`". Cases (a), (f) and (g) are worded this way already.
+7. **Nothing checks the empty factories.** Spec line 25 promises each module's `index.ts` has an empty `create<Name>Module` factory, but AC-9 only checks that `index.ts` exists. You could add "and exports `create<Name>Module`", or "`app` creates all 6 modules and the smoke test starts the app".
+
+### Resolved
+
+These items are fixed and consistent:
+- the `app` and service-instance gap: factory, `{ plugin, service }`, dependency order;
+- Prettier on Markdown: NFR-1, the `checks.md` row, and the one-time format commit;
+- the AC-2 command;
+- AC-7 cases (f) and (g) for the layer and type-only rules;
+- the `index.ts` exemption from layer rules;
+- the AC-3 check wording;
+- rules moved to `architecture.md#rules`, with NFR-4 and `checks.md` linking there.
+
+The spec is now short enough that the 1-page limit looks fine.
+
+Items 1 and 2 are the real conflicts, and items 3 and 4 would block the lab PR or local dev.
