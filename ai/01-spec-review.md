@@ -407,3 +407,30 @@ Nearly done. Most of round 5 is fixed, but two minor items are still open, and t
 - **Factory check:** AC-9 now checks the factory, that `app` creates all 6 modules, and that the smoke test starts the app.
 
 I don't see any contradictions left. Items 1 and 2 are one-line edits, and 3–4 are implementation notes you could also handle while building.
+
+---
+
+## Prompt 7
+
+> Findings you're previously found are fixed, please, do a review again, I hope everything right now
+
+## Answer 7
+
+Everything is consistent now except one leftover line in the README. Your commit history is clean too: the round-6 commit now contains only `ai/01-spec-review.md`, and all doc changes are uncommitted. I re-read all 6 modified files and didn't change any files.
+
+### Still open
+
+**`README.md:41` still says "module graph and ER diagram".** You updated `spec-format.md:9` to "(module graph, rules, ER)", but `architecture.md` now also holds the rules, and this line wasn't changed. Suggested wording: `module graph, rules and ER diagram`.
+
+### Verified
+
+- **AC-7 (b):** now `import type` from `bookings/index.ts` in `movies/application`, so it tests only the graph rule.
+- **FR-2 launcher:** keeps an existing `GIT_SHA`, and if `git rev-parse` fails it leaves it unset and still starts.
+- **AC-2:** now runs `npm run build && npm start`.
+- **`spec-format.md:9`:** now mentions rules.
+- **Coverage:** every FR and NFR has at least one AC, and every AC follows `AC-N (covers …): … — check: …`.
+- **No contradictions** between the spec, `architecture.md`, `checks.md`, `spec-format.md`, the DoD and the README. Open questions is empty.
+
+One note for when you set up tooling, not a doc gap: include `scripts/start.mjs` in the ESLint and Prettier scope.
+
+Once you fix README line 41, the docs are ready, and the only remaining step is the ADRs.
