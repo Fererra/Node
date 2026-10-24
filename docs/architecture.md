@@ -46,6 +46,7 @@ Layers inside a module:
 - `domain` → only `shared`; no npm packages
 - Ports live in `application/ports/`. `http` maps application errors to HTTP codes.
 - Layer folders appear when code appears.
+- "Packages" means npm packages, including type-only imports; Node built-ins (`node:*`) are allowed. Framework packages are `fastify` and `@fastify/*`.
 
 ## Data
 
