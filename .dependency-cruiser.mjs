@@ -16,6 +16,21 @@ const otherModule = {
   pathNot: '^src/modules/$1/',
 };
 
+/** Every way dependency-cruiser can classify an npm package import. */
+const npmDependencyTypes = [
+  'npm',
+  'npm-dev',
+  'npm-optional',
+  'npm-peer',
+  'npm-bundled',
+  'npm-no-pkg',
+  'npm-unknown',
+];
+
+/** Framework and ORM packages, resolved or not (fastify, @fastify/*, drizzle-orm). */
+const frameworkPackages =
+  '^(node_modules/)?(fastify|@fastify/[^/]+|drizzle-orm)(/|$)';
+
 /** @type {import('dependency-cruiser').IConfiguration} */
 export default {
   forbidden: [
@@ -134,6 +149,22 @@ export default {
         path: '^src/',
         pathNot: ['^src/shared/', '^src/modules/$1/domain/'],
       },
+    },
+
+    // Packages inside a module's layers (node: built-ins are not npm packages)
+    {
+      name: 'layer-domain-no-npm',
+      comment: 'domain → no npm packages',
+      severity: 'error',
+      from: { path: '^src/modules/[^/]+/domain/' },
+      to: { dependencyTypes: npmDependencyTypes },
+    },
+    {
+      name: 'layer-application-no-framework',
+      comment: 'application → no framework or ORM packages',
+      severity: 'error',
+      from: { path: '^src/modules/[^/]+/application/' },
+      to: { path: frameworkPackages },
     },
   ],
   options: {
