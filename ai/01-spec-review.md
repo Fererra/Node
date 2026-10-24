@@ -434,3 +434,21 @@ Everything is consistent now except one leftover line in the README. Your commit
 One note for when you set up tooling, not a doc gap: include `scripts/start.mjs` in the ESLint and Prettier scope.
 
 Once you fix README line 41, the docs are ready, and the only remaining step is the ADRs.
+
+---
+
+## Prompt 8
+
+> README fixed, please review again
+
+## Answer 8
+
+The README is fixed. Line 41 now reads "module graph, rules and ER diagram". The other 5 files have the same diff as in the last review, so nothing else changed and nothing new needs checking.
+
+The review is complete:
+- There are no contradictions between the spec, `docs/architecture.md`, `checks.md`, `spec-format.md`, the DoD and the README.
+- Every FR and NFR has at least one AC.
+- Every AC follows the `— check:` format.
+- Open questions is empty.
+
+The remaining steps are the ADRs and committing the doc changes. Per `spec-format.md`, the spec change should go in a commit of its own, e.g. `docs(spec): …`, separate from the standards, architecture and README edits.
