@@ -253,3 +253,68 @@ Almost. Six of your eight answers resolve their contradiction cleanly, but answe
 - **The remaining items:** the design-only allowance, moving the deferrals to Out of scope, and the Fastify ADR.
 
 Once you settle the open choices here (route registration in 4, "exactly" in 5, repo visibility/plan in 8), I don't see anything else conflicting. I didn't change any files.
+
+---
+
+## Prompt 4
+
+> To avoid going in circles, I applied all decisions from rounds 1–3 to the files locally, without committing yet: README.md, specs/01-foundation.md, docs/architecture.md, standards/checks.md, standards/spec-format.md, standards/definition-of-done.md. ADRs are not written yet, only decided; the adr/ link in README will work once they are added in the next step.
+>
+> Round 3 answers:
+> - 1, 3 (FR-2 wording), 8 (NFR-5): were already decided, now written to disk. checks.md: functional tests and PostgreSQL in CI "from the first DB lab"; the smoke test also checks the body. DoD: flows without a database are covered by smoke + unit tests.
+> - 3: --short=7 means "at least 7", not exactly. CI and the AC-2 check use the same command.
+> - 4: Each module's index.ts exports a Fastify plugin (the module wires its own adapters) plus public services and types. app imports modules only through index.ts and may import shared. The rule now says "used by other modules only through index.ts". application exposes DTOs and error types; http maps them to HTTP codes and never imports domain.
+> - 5: src/ contains only app, shared, modules; modules/ contains exactly the 6 modules.
+> - 8: The repo is public. Branch protection on main requires CI, with "Do not allow bypassing the above settings" enabled.
+> - README: tariffs removed, "unit + smoke tests" in hooks, CI required to merge, links point to specs/ and docs/architecture.md.
+>
+> Please re-read the uncommitted files (git diff) and check them against my answers from rounds 1–3. Is anything unresolved, or are there new contradictions? Do not change any files.
+
+## Answer 4
+
+I checked the diff against your decisions from rounds 1–3. Almost everything matches, but there's one real gap and one practical problem to fix. I didn't change any files.
+
+### Must fix
+
+**1. `app` has no way to get the service instances it must pass between modules.** The spec now says modules use each other "only on types from the other module's `index.ts`", and that "service instances are passed by `app` as plugin options". But `index.ts` only exports a plugin, service interfaces and DTO types. An interface is a type, not an instance. So `app` has nothing it could pass, for example a `users` service to `bookings`.
+- Fix: let `index.ts` also export a factory, e.g. `createUsersModule(deps) → { plugin, service }`.
+- Or: share instances through Fastify decorators instead.
+
+This also goes beyond what you decided in round 3. There, `index.ts` exported "public services and types"; the spec now says "service interfaces and DTO types". The new parts ("only from `application`", "only types", "instances via plugin options") are also new. That's fine if intended, but it's a design decision the ADR 0001 should record.
+
+**2. Prettier will likely fail on the docs.** `npm run format:check` runs in CI, and Prettier checks Markdown by default. Your docs will fail it today:
+- `specs/01-foundation.md`, `standards/checks.md` and `standards/spec-format.md` have no final newline.
+- The Markdown tables aren't column-aligned, and Prettier aligns them.
+
+So the lab PR (AC-8) won't be green. Either run Prettier over the docs once tooling exists, or exclude `*.md` in `.prettierignore`. It's worth deciding now.
+
+### Small gaps
+
+3. **AC-2's manual command doesn't work as written.** `GIT_SHA=$(git rev-parse --short=7 HEAD)` on its own line sets a shell variable that isn't exported, so the server you start next won't see it. Use `GIT_SHA=$(git rev-parse --short=7 HEAD) npm start` in Git Bash, or `$env:GIT_SHA = git rev-parse --short=7 HEAD` in PowerShell.
+
+4. **AC-7 doesn't test the new cross-module rules.** The rules now say "only from `application`" and "only types". AC-7 has no case for an `http` or `infrastructure` file importing another module, or for a value (non-`import type`) import. dependency-cruiser can check both, since it distinguishes type-only imports. Without these cases, the new rules are written down but never checked.
+
+5. **`index.ts` isn't covered by the layer rules.** It imports `http`, `infrastructure` and `application` to build the plugin. The dependency-cruiser config has to exempt it. You could say that in the spec.
+
+6. **AC-3's check got vaguer.** "Commit such files" no longer says what to commit. The round-2 wording was more checkable: "commit a file with bad formatting, then one with an unused variable; the hook exits non-zero".
+
+7. **Some long-lived rules may belong in `docs/architecture.md`.** The layer and cross-module rules apply to every later lab, not just this one. `spec-format.md:9` says shared architecture lives in `docs/architecture.md`. This is optional, and it would also help the spec fit on 1 page, which is still worth checking.
+
+8. **ADRs 0001–0003 are still pending.** You know this already. The DoD requires them before the lab PR is done.
+
+### Resolved
+
+Everything else from rounds 1–3 is on disk and consistent:
+- **README:** tariffs removed, the links fixed, hooks and CI wording, trailing spaces removed.
+- **`/version`:** the contract with "at least 7" `--short=7` and the `"unknown"` fallback.
+- **Smoke test:** runs without a DB and checks the body.
+- **Module rules:** `app` and `shared`, `domain` → `shared` only, and `http` maps application errors.
+- **Design-only sections:** both name the bookings lab; deferrals are under Out of scope; `RESERVED`-only bookings.
+- **ER diagram:** `Genre ||--o{`.
+- **`checks.md`:** check-and-fail, `--max-warnings 0`, `format:check` vs `format`, `config-conventional`, "should", `.nvmrc`/`engines`, functional tests marked "from the first DB lab".
+- **DoD:** the new example and the no-DB exception.
+- **CI:** NFR-5 with branch protection and no bypass; AC-8 checks the `.nvmrc` setting.
+- **Structure:** NFR-6/AC-9.
+- **ACs:** AC-7 (d) and (e) added; the AC format follows the standard.
+
+Items 1 and 2 are the ones that would actually break something. The rest are wording and coverage fixes.
