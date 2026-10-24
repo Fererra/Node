@@ -1,6 +1,6 @@
 # DEFENSE — Assignment 1: Foundation and application structure
 
-**1. What I asked the AI.** To implement the project skeleton, quality pipeline and module structure from `specs/01-foundation.md`. The spec, standards, architecture rules, ADRs and this document are mine; the AI reviewed the spec and wrote the code. Prompts and reports: `ai/`.
+**1. What I implemented and what I asked the AI.** A TypeScript + Fastify skeleton with a working quality pipeline (hooks, CI, module boundaries enforced by dependency-cruiser) and a module structure derived from `specs/01-foundation.md`. The spec, standards, architecture rules, ADRs and this document are mine; the AI reviewed the spec and wrote the code. Prompts and reports: `ai/`.
 
 **2. Top-3 discrepancies I found and fixed** (spec <-> AI output):
 
