@@ -6,7 +6,8 @@
 - Written by hand, before any code for this lab. Committed as a separate commit.
 - Max 1 page. If it doesn't fit, the scope is too big — split it.
 - A spec is changed only by commits. If implementation shows the spec was wrong or incomplete, the spec is fixed first, then the code.
-- Shared architecture (modules, ER) lives in `docs/architecture.md`. A spec links to it and describes only what changes in this lab.
+- Shared architecture (module graph, rules, ER) lives in `docs/architecture.md`. A spec links to it and describes what changes in this lab.
+- A Design section may describe something that is implemented in a later lab. Such a section is labelled "design only" and names the lab that implements it.
 
 ## Sections
 
@@ -16,9 +17,9 @@
 | Goal | yes | What will be true after this lab, 1–2 sentences |
 | Functional requirements | yes | `FR-1`, `FR-2`, ... — what the system does |
 | Non-functional requirements | if any | `NFR-1`, ... — quality: performance, security, tooling, structure |
-| Design | if the lab changes structure or data | Modules and how they interact, data changes, key update scenarios. Link or diff to `docs/architecture.md` |
+| Design | if the lab changes or plans structure or data | Modules and how they interact, data, key update scenarios. Links to `docs/architecture.md` |
 | Acceptance criteria | yes | `AC-1`, ... — each one covers at least one FR/NFR |
-| Out of scope | yes | What is deliberately not done, and why if not obvious |
+| Out of scope | yes | What is deliberately not done, and why if not obvious. Decisions deferred to a later lab go here |
 | Open questions | optional | Things not decided yet. Must be empty before the lab is submitted |
 
 ## Acceptance criteria rules
@@ -28,7 +29,7 @@
 - Format: `AC-N (covers FR-X): <what> — check: <how>`.
 
 Good:
-`AC-3 (covers NFR-2): a commit with a lint error is rejected — check: commit a file with an unused variable, hook exits non-zero`
+`AC-3 (covers NFR-1): a commit with a lint error is rejected — check: commit a file with an unused variable, hook exits non-zero`
 
 Bad:
 `AC-3: code quality is good` — not checkable.
