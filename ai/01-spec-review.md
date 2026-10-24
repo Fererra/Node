@@ -37,6 +37,7 @@ I read all 7 files: the spec, `docs/architecture.md`, `README.md`, and the 4 fil
 ### B. Unclear or unverifiable requirements
 
 **B1. FR-2 (`/version`) leaves the details open:**
+
 - **Response format:** plain text or JSON, and if JSON, what key (e.g. `{ "sha": "…" }`)?
 - **SHA length:** short or full? AC-2 uses `--short`, FR-2 doesn't say.
 - **Source:** "SHA of the running build" could mean baked in at build time (env var or generated file) or read at runtime via `git`. What happens outside a git repo, or with a dirty tree? Is there a fallback such as `"unknown"`, or should startup fail?
@@ -50,6 +51,7 @@ I read all 7 files: the spec, `docs/architecture.md`, `README.md`, and the 4 fil
 → **Q11:** Where do these live?
 
 **B4. The layer rules are ambiguous** (`01-foundation.md:28`):
+
 - May `http` or `infrastructure` import `domain` directly (e.g. entity types in repositories)? Or only through `application`?
 - What may a module's `index.ts` export: application services only, or domain types too?
 - Must every module have all four layers in Lab 1, even when empty?
@@ -57,6 +59,7 @@ I read all 7 files: the spec, `docs/architecture.md`, `README.md`, and the 4 fil
 → **Q12:** How should these be read?
 
 **B5. "Booking seats" rules leave gaps.** These are relevant if A3 keeps them in the spec:
+
 - What counts as an "active" booking? Is `RESERVED` the only non-cancelled status, or are there others (e.g. `CONFIRMED`)?
 - Deleting `BookingSeat` rows on cancel loses the record of which seats a cancelled booking held. Is that acceptable?
 - How is "all `BookingSeat` rows have the booking's showtime" enforced: a composite FK `(booking_id, showtime_id)`, or application code?
@@ -67,7 +70,7 @@ I read all 7 files: the spec, `docs/architecture.md`, `README.md`, and the 4 fil
 **B6. Formatting may never block a commit.** If lint-staged runs `prettier --write`, a formatting error gets auto-fixed instead of rejected.
 → **Q14:** Should pre-commit auto-fix or check-and-fail? The same question applies to `eslint --fix`.
 
-**B7. AC-3 may not fail with default ESLint settings.** An unused variable only rejects the commit if `no-unused-vars` is an *error* or ESLint runs with `--max-warnings 0`.
+**B7. AC-3 may not fail with default ESLint settings.** An unused variable only rejects the commit if `no-unused-vars` is an _error_ or ESLint runs with `--max-warnings 0`.
 → **Q15:** Should the spec say "warnings fail"?
 
 **B8. Commitlint's config isn't specified.**
@@ -81,16 +84,16 @@ I read all 7 files: the spec, `docs/architecture.md`, `README.md`, and the 4 fil
 
 ### C. Missing acceptance criteria (FR/NFR coverage)
 
-| Req | Current AC | Gap |
-|---|---|---|
-| FR-1 | AC-1 | Body and DB independence not checked (B2) |
-| FR-2 | AC-2 | Manual `curl` only, not automated in CI. Format undefined (B1) |
-| **NFR-1 (Prettier)** | AC-3 covers lint only | **Nothing checks formatting.** E.g. "`npm run format` (check mode) fails on a misformatted file" |
-| **NFR-2 (strict)** | AC-4 | Any type error passes AC-4, so **nothing checks strict mode.** E.g. push code with an implicit `any`, or check `strict: true` |
-| NFR-3 | AC-3/4/5 | Pre-push also runs deps:check, unit tests, smoke and build, and none of these is shown to block a push. Is one example enough? |
-| NFR-4 | AC-6, AC-7 | No AC for: (a) a **forbidden module-to-module dependency via `index.ts`** (e.g. `movies` → `bookings`); (b) **intra-module layer rules** (e.g. `domain` → `infrastructure`); (c) **`shared` → module**; (d) a **deliberately introduced cycle** being caught (AC-6 only checks the current state) |
-| **NFR-5** | AC-8 | "Green on the lab PR" doesn't prove CI runs **on every PR**, runs **`npm run check`**, or **fails** when it should. E.g. a PR with a lint error shows a red check. Is branch protection required? |
-| Goal: "module structure" | none | No AC checks that the 6 modules + `shared` with their layer folders exist |
+| Req                      | Current AC            | Gap                                                                                                                                                                                                                                                                                               |
+| ------------------------ | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| FR-1                     | AC-1                  | Body and DB independence not checked (B2)                                                                                                                                                                                                                                                         |
+| FR-2                     | AC-2                  | Manual `curl` only, not automated in CI. Format undefined (B1)                                                                                                                                                                                                                                    |
+| **NFR-1 (Prettier)**     | AC-3 covers lint only | **Nothing checks formatting.** E.g. "`npm run format` (check mode) fails on a misformatted file"                                                                                                                                                                                                  |
+| **NFR-2 (strict)**       | AC-4                  | Any type error passes AC-4, so **nothing checks strict mode.** E.g. push code with an implicit `any`, or check `strict: true`                                                                                                                                                                     |
+| NFR-3                    | AC-3/4/5              | Pre-push also runs deps:check, unit tests, smoke and build, and none of these is shown to block a push. Is one example enough?                                                                                                                                                                    |
+| NFR-4                    | AC-6, AC-7            | No AC for: (a) a **forbidden module-to-module dependency via `index.ts`** (e.g. `movies` → `bookings`); (b) **intra-module layer rules** (e.g. `domain` → `infrastructure`); (c) **`shared` → module**; (d) a **deliberately introduced cycle** being caught (AC-6 only checks the current state) |
+| **NFR-5**                | AC-8                  | "Green on the lab PR" doesn't prove CI runs **on every PR**, runs **`npm run check`**, or **fails** when it should. E.g. a PR with a lint error shows a red check. Is branch protection required?                                                                                                 |
+| Goal: "module structure" | none                  | No AC checks that the 6 modules + `shared` with their layer folders exist                                                                                                                                                                                                                         |
 
 Also: DoD says "every new user flow has a functional test with a real DB". Do `/health` and `/version` count as user flows needing `test:func` tests, or are smoke/unit tests enough?
 → **Q19:** Which of these ACs do you want added?
@@ -138,6 +141,7 @@ Your answers hold together for the most part. Two things need attention before y
 ### 0. Most of the fixes you listed aren't in the files yet
 
 `git status` shows only `README.md` as modified. In the README, Q1, Q5 and the link fix are done. Everything else you described as fixed is unchanged on disk:
+
 - **Spec:** ACs, rules, FR-2, `src/app`.
 - **`docs/architecture.md`:** the `Genre ||--o{` change.
 - **DoD:** the tariff example.
@@ -179,7 +183,7 @@ Maybe you haven't saved or written them yet. Everything below checks your answer
 
 6. **Q3 needs a change to `spec-format.md`.** Right now it says Design is for when "the lab changes structure or data" and a spec "describes only what changes in this lab". Nothing allows design-only sections, so that has to be added before the spec can rely on it.
 
-   The Q13 deferrals (how same-showtime and seat-in-hall are enforced) should go under *Out of scope*, not *Open questions*, because Open questions must be empty at submission.
+   The Q13 deferrals (how same-showtime and seat-in-hall are enforced) should go under _Out of scope_, not _Open questions_, because Open questions must be empty at submission.
 
 7. **Q7 records a decision Lab 1 doesn't implement.** An ADR for Drizzle in a lab with no Drizzle is fine as long as its status and wording make clear it's a forward decision. Also, Fastify is a stack choice with no ADR. Is that deliberate?
 
@@ -218,22 +222,26 @@ Almost. Six of your eight answers resolve their contradiction cleanly, but answe
 ### Gaps to close
 
 **1. Functional tests: three more places need updating.** You've decided `checks.md` marks `test:func` as "from the first DB lab". These lines also need the same change:
+
 - `checks.md:20`: "CI: full `npm run check`, with PostgreSQL as a service container".
 - `definition-of-done.md:7`: lists "functional tests" in `npm run check`.
 - `definition-of-done.md:16`: says every new user flow needs a functional test with a real DB. It needs the exception you described: flows that don't touch the DB can be covered by smoke and unit tests.
 - `checks.md:11`: the smoke test row says `GET /health → 200`. Per Q10, it should also check the body.
 
 **3. `GIT_SHA`: two small fixes.**
+
 - FR-2 still says "SHA of the running build". Reword it, e.g. "the commit SHA from `GIT_SHA`, or `"unknown"` if unset".
-- `--short=7` means *at least* 7 characters. Git still lengthens it if the prefix is ambiguous. It works in practice, and the CI script and the AC-2 manual check both use the same command, so they stay consistent. Just don't describe it as "exactly 7".
+- `--short=7` means _at least_ 7 characters. Git still lengthens it if the prefix is ambiguous. It works in practice, and the CI script and the AC-2 manual check both use the same command, so they stay consistent. Just don't describe it as "exactly 7".
 
 **4. `app` → modules: one new conflict.**
+
 - Spec line 26 says "a module is used by others only through its `index.ts`", but `app` now imports `infrastructure` directly. Reword it to "used by **other modules** only through its `index.ts`". The DoD already says "modules import each other", so it's fine.
 - **New gap:** how does `app` register a module's HTTP routes? Under Q12, `index.ts` exports "application services and types". So either `index.ts` also exports a Fastify plugin from `http`, or `app` may import `http` too. Pick one; the dependency-cruiser rule depends on it.
 - Say explicitly that `app` may import `shared`.
 - **Consequence of "http may not import domain":** domain errors (e.g. seat taken → `409`) and DTOs have to reach `http` through `application`. That's fine, but ADR 0001 should mention it.
 
 **5. "Exactly" in the structure AC is too strict.** Make it "at least, and no other modules". Otherwise:
+
 - the server entry point (`main.ts` / `server.ts`) must live inside `src/app/`, or the AC fails;
 - does `src/shared/` need an `index.ts`?
 - the temporary layer-violation files must be deleted before the structure check runs, or they break "exactly".
@@ -243,6 +251,7 @@ Almost. Six of your eight answers resolve their contradiction cleanly, but answe
 **7. Make sure an ADR covers the layering decisions.** You first said 0001 would be "modular monolith + layering"; now it's just "modular monolith". ADR 0001 should still cover the layering rules and the `src/app` composition root, or they need an ADR of their own. Also: does 0003 Drizzle cover PostgreSQL, or is that a separate decision?
 
 **8. Branch protection: two practical problems.**
+
 - **On GitHub Free, branch protection and rulesets aren't enforced for private repos.** If the repo is private on a free plan, AC-8 can't pass. Is the repo public, or on Pro/Education?
 - **As the repo owner, you're an admin and can bypass protection by default.** "A red PR can't be merged" only holds if you turn on "Do not allow bypassing the above settings".
 - NFR-5 only says "CI runs on every PR". Add "and is required to merge", so AC-8's new check covers a stated requirement.
@@ -261,6 +270,7 @@ Once you settle the open choices here (route registration in 4, "exactly" in 5, 
 > To avoid going in circles, I applied all decisions from rounds 1–3 to the files locally, without committing yet: README.md, specs/01-foundation.md, docs/architecture.md, standards/checks.md, standards/spec-format.md, standards/definition-of-done.md. ADRs are not written yet, only decided; the adr/ link in README will work once they are added in the next step.
 >
 > Round 3 answers:
+>
 > - 1, 3 (FR-2 wording), 8 (NFR-5): were already decided, now written to disk. checks.md: functional tests and PostgreSQL in CI "from the first DB lab"; the smoke test also checks the body. DoD: flows without a database are covered by smoke + unit tests.
 > - 3: --short=7 means "at least 7", not exactly. CI and the AC-2 check use the same command.
 > - 4: Each module's index.ts exports a Fastify plugin (the module wires its own adapters) plus public services and types. app imports modules only through index.ts and may import shared. The rule now says "used by other modules only through index.ts". application exposes DTOs and error types; http maps them to HTTP codes and never imports domain.
@@ -277,12 +287,14 @@ I checked the diff against your decisions from rounds 1–3. Almost everything m
 ### Must fix
 
 **1. `app` has no way to get the service instances it must pass between modules.** The spec now says modules use each other "only on types from the other module's `index.ts`", and that "service instances are passed by `app` as plugin options". But `index.ts` only exports a plugin, service interfaces and DTO types. An interface is a type, not an instance. So `app` has nothing it could pass, for example a `users` service to `bookings`.
+
 - Fix: let `index.ts` also export a factory, e.g. `createUsersModule(deps) → { plugin, service }`.
 - Or: share instances through Fastify decorators instead.
 
 This also goes beyond what you decided in round 3. There, `index.ts` exported "public services and types"; the spec now says "service interfaces and DTO types". The new parts ("only from `application`", "only types", "instances via plugin options") are also new. That's fine if intended, but it's a design decision the ADR 0001 should record.
 
 **2. Prettier will likely fail on the docs.** `npm run format:check` runs in CI, and Prettier checks Markdown by default. Your docs will fail it today:
+
 - `specs/01-foundation.md`, `standards/checks.md` and `standards/spec-format.md` have no final newline.
 - The Markdown tables aren't column-aligned, and Prettier aligns them.
 
@@ -305,6 +317,7 @@ So the lab PR (AC-8) won't be green. Either run Prettier over the docs once tool
 ### Resolved
 
 Everything else from rounds 1–3 is on disk and consistent:
+
 - **README:** tariffs removed, the links fixed, hooks and CI wording, trailing spaces removed.
 - **`/version`:** the contract with "at least 7" `--short=7` and the `"unknown"` fallback.
 - **Smoke test:** runs without a DB and checks the body.
@@ -332,11 +345,13 @@ Your round-4 fixes are all in place. This pass found one new rule conflict, one 
 ### Must fix
 
 **1. The rules forbid the `deps` type that `index.ts` needs** (`docs/architecture.md:25-29`).
+
 - Line 25 says only `application` may depend on another module.
 - Line 26 says `create<Name>Module(deps)` receives other modules' services. So `createBookingsModule`'s `deps` parameter needs types like `ShowtimesService`.
 - If `bookings/index.ts` imports that type from `showtimes/index.ts` itself, it breaks line 25, and dependency-cruiser will flag it.
 
 Pick one:
+
 - **Option A:** `deps` is typed with ports declared in `bookings/application/ports/`. Those ports `import type` from `showtimes`, so `index.ts` never touches another module.
 - **Option B:** `index.ts` may `import type` from other modules too.
 
@@ -347,6 +362,7 @@ Pick one:
 ### Practical issue
 
 **4. A `GIT_SHA` start script won't work on Windows.** FR-2 says the start script sets `GIT_SHA` via `git rev-parse`. On Windows, npm runs scripts in `cmd.exe`, so `GIT_SHA=$(git rev-parse --short=7 HEAD) node …` fails there, and you develop on Windows. `cross-env` can't do command substitution either. Options:
+
 - a tiny Node launcher script that runs `git rev-parse` and then starts the server;
 - set `script-shell` to Git Bash in `.npmrc`;
 - leave the start script out, and say `GIT_SHA` is set only by CI and by hand.
@@ -360,6 +376,7 @@ Pick one:
 ### Resolved
 
 These items are fixed and consistent:
+
 - the `app` and service-instance gap: factory, `{ plugin, service }`, dependency order;
 - Prettier on Markdown: NFR-1, the `checks.md` row, and the one-time format commit;
 - the AC-2 command;
@@ -446,6 +463,7 @@ Once you fix README line 41, the docs are ready, and the only remaining step is 
 The README is fixed. Line 41 now reads "module graph, rules and ER diagram". The other 5 files have the same diff as in the last review, so nothing else changed and nothing new needs checking.
 
 The review is complete:
+
 - There are no contradictions between the spec, `docs/architecture.md`, `checks.md`, `spec-format.md`, the DoD and the README.
 - Every FR and NFR has at least one AC.
 - Every AC follows the `— check:` format.

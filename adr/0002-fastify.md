@@ -18,14 +18,17 @@ The service is a JSON REST API in TypeScript. Each module exports a plugin from 
 ## Considered Options
 
 ### Option A: Fastify
+
 - Pros: JSON Schema validation and serialization built in; encapsulated plugins fit `create<Name>Module → { plugin }`; `app.inject()` runs requests in-process for smoke and functional tests; good TypeScript types.
 - Cons: plugin encapsulation and the order of `register` calls need care; a smaller middleware ecosystem than Express.
 
 ### Option B: Express
+
 - Pros: I already know it from the previous version; the largest ecosystem.
 - Cons: no built-in validation (the previous version needed its own validator); TypeScript types are added on top; tests need Supertest or a running server; no plugin encapsulation, so modules share one global middleware chain.
 
 ### Option C: NestJS
+
 - Pros: modules, dependency injection and validation out of the box.
 - Cons: brings its own module and DI system, which would overlap with my own module rules and factories; decorators and reflection hide dependencies from dependency-cruiser; much larger surface to learn and defend.
 

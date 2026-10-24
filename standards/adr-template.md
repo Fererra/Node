@@ -4,12 +4,20 @@
 - Date:
 
 ## Context
+
 ## Decision Drivers
+
 ## Considered Options
+
 ### Option A
+
 - Pros:
 - Cons:
+
 ### Option B
+
 ...
+
 ## Decision
+
 ## Consequences

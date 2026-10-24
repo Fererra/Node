@@ -19,22 +19,30 @@ In the previous version of this project the modules imported each other's intern
 ## Considered Options
 
 ### Option A: Modular monolith with factories and ports
+
 One application. Each module exposes `create<Name>Module(deps) → { plugin, service }` from its `index.ts`. What a module needs from others is declared as ports in its own `application/ports/`. `src/app/` creates modules in dependency order and passes services as `deps`.
+
 - Pros: boundaries are explicit and checkable; no runtime imports between modules, so no hidden cycles; a module can be tested with fake `deps`; one deployment.
 - Cons: more boilerplate (ports, factories, wiring in `app`); dependency order in `app` must be kept by hand.
 
 ### Option B: Modular monolith with direct service imports
+
 One application. Modules import each other's services through `index.ts`.
+
 - Pros: less code; simple to start.
 - Cons: runtime imports between modules make cycles easy (exactly what happened in the previous version); modules can't be tested in isolation without mocking imports.
 
 ### Option C: Layered monolith (controllers / services / repositories folders)
+
 Code grouped by technical layer instead of by business area.
+
 - Pros: familiar; very little structure to set up.
 - Cons: no business boundaries at all; every service can reach every repository; dependency-cruiser can't express "bookings may use showtimes".
 
 ### Option D: Microservices
+
 One service per module, talking over HTTP or messages.
+
 - Pros: hard boundaries by design; independent deployment.
 - Cons: network, deployment and data consistency costs are far too high for one developer and one course; booking seats would need distributed transactions.
 

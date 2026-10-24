@@ -17,12 +17,14 @@ Based on my earlier coursework ([Fererra/coursework](https://github.com/Fererra/
 ## Scope
 
 What's in this course:
+
 - module structure with checked boundaries between modules
 - git hooks: format, lint, type check, unit + smoke tests, build
 - CI on every PR, required to merge into `main`
 - domain logic for the features above
 
 Not included for now:
+
 - tariffs and payments
 - email/push notifications
 - deployment
