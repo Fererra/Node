@@ -35,4 +35,4 @@ Markdown is formatted by Prettier like code. Docs written before the tooling exi
 ## Tools
 
 - Hooks: husky + lint-staged
-- CI: GitHub Actions on every PR, `node-version-file: .nvmrc` (`engines` matches it, e.g. `.nvmrc` = `22`, `engines` = `>=22 <23`)
+- CI: GitHub Actions on every PR, `node-version-file: .nvmrc` (`engines` matches it, e.g. `.nvmrc` = `26`, `engines` = `>=26 <27`)
