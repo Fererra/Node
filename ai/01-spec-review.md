@@ -103,3 +103,93 @@ Also: DoD says "every new user flow has a functional test with a real DB". Do `/
 - Is `git commit --no-verify` considered acceptable bypass, given CI is the backstop?
 
 The most important questions are **Q3/Q4** (what Lab 1 actually includes regarding the DB), **Q9** (`/version` contract), **Q11** (where health/version live) and **Q19** (which missing ACs to add). Answering those unblocks most of the rest.
+
+---
+
+## Prompt 2
+
+> Q1: Tariffs are out of scope. Removed from README and from the DoD example.
+> Q2: Every module may import shared. Added as a rule.
+> Q3: Data and scenarios stay in the spec (the lab requires them), labelled "design only, implemented in the bookings lab". spec-format allows design-only sections.
+> Q4: No database in Lab 1: no Drizzle config, no Postgres in CI, no functional tests yet. Tests in Lab 1: smoke + unit, no --passWithNoTests.
+> Q5: README now says "unit + smoke tests".
+> Q6: The standard's AC format is binding. Spec fixed.
+> Q7: Two ADRs: 0001 modular monolith + layering, 0002 Drizzle ORM. No AC, DoD covers it.
+> Q8: Genre ||--o{ MovieGenre. Fixed in docs/architecture.md.
+> Q9: JSON { "sha": "<short sha>" }, taken from GIT_SHA set at build time; "unknown" if not set.
+> Q10: Yes: smoke test runs without DATABASE_URL and checks status and body.
+> Q11: /health and /version live in src/app/ (composition root + system routes). app may import modules; modules must not import app.
+> Q12: infrastructure may import domain. index.ts exports application services and types consumers need. Layer folders appear when code appears; in Lab 1 a module is just index.ts.
+> Q13: Active = RESERVED or PAID. Losing seat history on cancel is acceptable for now. Enforcing same showtime and "seat belongs to the showtime's hall" is decided in the bookings lab (out of scope).
+> Q14: Check-and-fail: prettier --check, eslint without --fix.
+> Q15: Yes, --max-warnings 0.
+> Q16: @commitlint/config-conventional as-is.
+> Q17: Guidance only, reworded as "should".
+> Q18: Yes: .nvmrc + engines; CI uses .nvmrc.
+> Q19: Added ACs for formatting, strict mode, forbidden module dependency, layer violation, CI failing on a bad PR, project structure.
+> Minor: README link fixed; spec-format example relabelled NFR-1; --no-verify is acceptable because CI is the backstop; roles are noted for the auth lab.
+>
+> Please confirm these answers don't create new contradictions. Do not change any files.
+
+## Answer 2
+
+Your answers hold together for the most part. Two things need attention before you rely on them.
+
+### 0. Most of the fixes you listed aren't in the files yet
+
+`git status` shows only `README.md` as modified. In the README, Q1, Q5 and the link fix are done. Everything else you described as fixed is unchanged on disk:
+- **Spec:** ACs, rules, FR-2, `src/app`.
+- **`docs/architecture.md`:** the `Genre ||--o{` change.
+- **DoD:** the tariff example.
+- **`spec-format.md`:** the example label and the design-only allowance.
+- **`checks.md`:** CI, functional tests, the "should" wording.
+- **ADRs:** `adr/` doesn't exist.
+
+Maybe you haven't saved or written them yet. Everything below checks your answers as written, not the files.
+
+### 1. New contradictions your answers create
+
+1. **Q4 conflicts with existing standards and with itself.**
+   - `checks.md:12,20` say CI runs functional tests with a PostgreSQL service.
+   - `definition-of-done.md:7` lists functional tests as part of `npm run check`.
+   - `definition-of-done.md:16` requires a functional test with a real DB for every new user flow, and `/health` and `/version` are new flows.
+   - "No `--passWithNoTests`" means `npm run check` fails if it still calls `test:func` with zero test files.
+
+   → Does `test:func` leave `npm run check` until the bookings lab? Does the DoD get a Lab 1 exemption, or does `checks.md` mark functional tests "from lab NN"? Also, which unit test exists in Lab 1? The `GIT_SHA` → `"unknown"` fallback is the obvious candidate.
+
+2. **Q13's `PAID` status conflicts with payments being out of scope** (spec, and now the README). No flow can reach `PAID`, and the "Book seats" scenario only creates `RESERVED`. → Should `PAID` be dropped for now, or kept with a note like "set by the payments feature, not in this course"?
+
+3. **Q9 + AC-2: "set at build time" doesn't fit the build.**
+   - The build is plain `tsc`, and `tsc` can't inject env vars. So `GIT_SHA` is really read from the environment at startup, unless the build generates a file.
+   - Locally and in the pre-push smoke test, `GIT_SHA` is unset, so `/version` returns `"unknown"`. AC-2 (`= git rev-parse --short HEAD`) then only passes if the check sets `GIT_SHA` explicitly.
+   - `--short` length isn't fixed. It's 7 by default but grows when abbreviations collide. CI has to produce the SHA the same way the check does.
+
+   → Should I read "build time" as "process env at start, set by CI/start script"? And what exactly does the AC-2 check run?
+
+4. **Q11 (`src/app/`) and Q2 (`shared`) conflict with the "only graph dependencies" rule.** `01-foundation.md:27` still forbids everything not in the graph, and the graph has neither `app` nor `shared`.
+   - Both exceptions need to be written into the rule.
+   - Does `app` import modules only via `index.ts`, or may the composition root reach `infrastructure` adapters to wire ports? Usually it has to, and the rule should say so.
+   - Must `shared` not import `app`?
+
+5. **Q12 + Q19: two of the new ACs have nothing to check in Lab 1.** A Lab 1 module is just `index.ts`, so:
+   - The "layer violation" AC only works by adding temporary layer files during the check. That's fine, but the check text should say so.
+   - The "project structure" AC should check exactly `src/app`, `src/shared`, and 6 × `src/modules/*/index.ts`, not layer folders.
+
+   The rule text on line 28 also needs updating for "infrastructure may import domain". You didn't say whether `http` may import `domain`.
+
+6. **Q3 needs a change to `spec-format.md`.** Right now it says Design is for when "the lab changes structure or data" and a spec "describes only what changes in this lab". Nothing allows design-only sections, so that has to be added before the spec can rely on it.
+
+   The Q13 deferrals (how same-showtime and seat-in-hall are enforced) should go under *Out of scope*, not *Open questions*, because Open questions must be empty at submission.
+
+7. **Q7 records a decision Lab 1 doesn't implement.** An ADR for Drizzle in a lab with no Drizzle is fine as long as its status and wording make clear it's a forward decision. Also, Fastify is a stack choice with no ADR. Is that deliberate?
+
+8. **Your `--no-verify` answer assumes CI blocks merges.** "CI is the backstop" holds only if branch protection requires the CI check on `main`. Otherwise a red PR can still be merged. Should the new AC for "CI fails on a bad PR" also cover "merge is blocked"?
+
+### 2. Answers with no conflicts
+
+Q1, Q5, Q6, Q8, Q10, Q14, Q15, Q16, Q17, Q18, the rest of the minor fixes, and the README changes.
+
+- **Q16:** `"stuff"` is rejected by `config-conventional`, so AC-5 still works.
+- **Q18:** keep the `engines` range consistent with the `.nvmrc` version, e.g. `.nvmrc` = `22`, engines `>=22 <23`.
+
+I didn't change any files.
