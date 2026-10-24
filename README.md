@@ -46,4 +46,11 @@ Not included for now:
 
 ## Getting started
 
-TODO: add after tooling setup
+Requires Node 26 (see `.nvmrc`).
+
+```bash
+npm ci
+npm run check
+npm run build && npm start
+curl localhost:3000/version
+```
