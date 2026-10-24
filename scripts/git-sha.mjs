@@ -16,7 +16,7 @@ export function gitRevParse() {
  * @param {() => string} revParse
  */
 export function setGitSha(env, revParse = gitRevParse) {
-  if (env.GIT_SHA === undefined) {
+  if (!env.GIT_SHA) {
     try {
       env.GIT_SHA = revParse();
     } catch {

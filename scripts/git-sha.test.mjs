@@ -13,6 +13,12 @@ describe('setGitSha', () => {
     expect(env).toEqual({ GIT_SHA: 'abc1234' });
   });
 
+  it('sets GIT_SHA from git when it is empty', () => {
+    const env = { GIT_SHA: '' };
+    setGitSha(env, revParse);
+    expect(env).toEqual({ GIT_SHA: 'abc1234' });
+  });
+
   it('keeps an existing non-empty GIT_SHA', () => {
     const env = { GIT_SHA: 'preset1' };
     setGitSha(env, revParse);
