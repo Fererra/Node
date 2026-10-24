@@ -42,8 +42,8 @@ Layers inside a module:
 
 - `http` → `application`
 - `infrastructure` → `application`, `domain`
-- `application` → `domain`
-- `domain` → only `shared`
+- `application` → `domain`; no framework or ORM packages (`fastify`, `drizzle-orm`)
+- `domain` → only `shared`; no npm packages
 - Ports live in `application/ports/`. `http` maps application errors to HTTP codes.
 - Layer folders appear when code appears.
 
