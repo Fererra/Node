@@ -8,11 +8,14 @@
     "node": ">=26 <27"
   },
   "scripts": {
-    "check": "npm run format:check && npm run lint",
+    "start": "node scripts/start.mjs",
+    "check": "npm run format:check && npm run lint && npm run check:fast",
+    "check:fast": "npm run typecheck && npm run test && npm run build",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint . --max-warnings 0",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "build": "tsc -p tsconfig.build.json"
   },
   "devDependencies": {
@@ -22,6 +25,10 @@
     "globals": "17.13.0",
     "prettier": "3.9.10",
     "typescript": "6.0.3",
-    "typescript-eslint": "8.72.0"
+    "typescript-eslint": "8.72.0",
+    "vitest": "5.0.5"
+  },
+  "dependencies": {
+    "fastify": "5.12.7"
   }
 }
