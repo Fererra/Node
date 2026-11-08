@@ -537,3 +537,21 @@ The fix: the final synchronous write re-checks that the key is unused and the se
 3. Decide whether to reword the in-memory rule (section 2) in ADR:93 and api.md:52.
 
 After that I have nothing left to raise on this spec.
+
+---
+
+## Prompt 6
+
+> Saved checks.md and spec-format.md. Reworded the in-memory rule in ADR-0004, api.md and architecture.md: reads and checks may await; the repository's final step re-checks the key and the seats and writes everything in one synchronous step. Please confirm the diff is consistent now. Do not change any files.
+
+## Answer 6
+
+The diff is consistent now, with one exception: **`docs/architecture.md` wasn't saved this round.** Its timestamp is still 13:53, while the other files you edited are 13:55–13:56. I didn't change any files.
+
+- **ADR-0004:93** and **api.md:52** have the new wording: reads and checks may `await`, and the repository's final step re-checks the key and the seats, then writes everything in one synchronous step. The two match. ✓
+- **architecture.md:121** still says "In memory: look up the key -> checks -> one synchronous write", without the re-check. It doesn't contradict the other two files, because it links to `api.md#idempotency`. But it's the less precise, older wording. Save your edited version, or add "(the final write re-checks the key and the seats)".
+- **checks.md:11, 22–24** have `TEST_DATABASE_URL` ("never the development one"), the new `buildApp` per memory test, and the line saying `test/support/fixtures.ts` is outside depcruise. They match NFR-8, AC-12 and arch:60. ✓
+- **spec-format.md:20:** the Design row now links both `docs/architecture.md` and `docs/api.md`. ✓
+- `prettier --check` passes on `specs/`, `docs/`, `adr/` and `standards/`.
+
+Once `architecture.md` is saved, I have nothing left to raise on this spec.
