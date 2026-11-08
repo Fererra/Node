@@ -6,7 +6,7 @@ Updated when a lab spec changes modules, rules or data.
 ## Modules
 
 `movies` owns genres; `seats` owns cinema halls and their seats.
-Not shown: any module may import `shared`; `src/app/` imports every module through its `index.ts`.
+Not shown: any module may import `shared` (`domain` only `shared/kernel/`); `src/app/` imports every module through its `index.ts`.
 
 ```mermaid
 flowchart LR
@@ -38,6 +38,8 @@ App and shared:
 - Modules don't import `app`.
 - Any module or layer except `domain` may import `shared`; `shared` imports no module and not `app`.
 - `src/shared/kernel/` holds plain types and helpers: no npm packages and no imports from the rest of `shared`. `domain` may import only `shared/kernel/`, so it can't reach a package through `shared`.
+- `src/shared/context.ts` holds the request context (AsyncLocalStorage: `requestId`, `user`, current transaction) and `getContext()`; `src/shared/unit-of-work.ts` holds the `UnitOfWork` port. Any layer except `domain` may use them (ADR-0004).
+- `src/shared/db/` holds the DB pool, the `UnitOfWork` implementation and the "transaction or pool" executor. Only module `infrastructure` layers and `src/app/` may import it.
 
 Layers inside a module:
 
