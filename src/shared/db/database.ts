@@ -4,6 +4,12 @@ import type { Logger } from '../logger.js';
 
 export type Database = NodePgDatabase;
 
+/** Module storage option for PostgreSQL; `src/app/` passes the one `db`. */
+export interface PostgresStorage {
+  readonly kind: 'postgres';
+  readonly db: Database;
+}
+
 export interface DatabaseHandle {
   db: Database;
   pool: pg.Pool;

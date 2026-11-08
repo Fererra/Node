@@ -6,6 +6,10 @@ import { createShowtimesService } from './application/showtimes.service.js';
 import type { ShowtimesService } from './application/showtimes.types.js';
 import { showtimesRoutes } from './http/showtimes.routes.js';
 import { InMemoryShowtimesRepository } from './infrastructure/in-memory-showtimes.repository.js';
+import {
+  DrizzleShowtimesRepository,
+  type PostgresStorage,
+} from './infrastructure/drizzle-showtimes.repository.js';
 import type { ShowtimesSeed } from './infrastructure/showtimes.seed.js';
 
 export type {
@@ -15,11 +19,9 @@ export type {
 } from './application/showtimes.types.js';
 export type { ShowtimesSeed } from './infrastructure/showtimes.seed.js';
 
-/** Where the module keeps its data; `postgres` comes with the DB stage. */
-export interface ShowtimesStorage {
-  kind: 'memory';
-  seed: ShowtimesSeed;
-}
+/** Where the module keeps its data. */
+export type ShowtimesStorage =
+  { kind: 'memory'; seed: ShowtimesSeed } | PostgresStorage;
 
 export function createShowtimesModule(deps: {
   storage: ShowtimesStorage;
@@ -27,7 +29,10 @@ export function createShowtimesModule(deps: {
   seats: SeatsPort;
   clock: Clock;
 }): AppModule<ShowtimesService> {
-  const repository = new InMemoryShowtimesRepository(deps.storage.seed);
+  const repository =
+    deps.storage.kind === 'memory'
+      ? new InMemoryShowtimesRepository(deps.storage.seed)
+      : new DrizzleShowtimesRepository(deps.storage.db);
   const service = createShowtimesService({
     repository,
     movies: deps.movies,
