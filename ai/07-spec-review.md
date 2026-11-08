@@ -263,3 +263,116 @@ Replay needs an explicit step: on `23505` on the `idempotency_key` PK, roll back
 6. 2.8: may a module's infrastructure query other modules' tables?
 7. 3.2: how does `npm start` choose its storage?
 8. NFR-8: should I propose an AC wording, or do you have one?
+
+---
+
+## Prompt 3
+
+> Round 2 answers:
+>
+> 2.1: A global onRequest hook starts the context with requestId; a route-level onRequest hook on FR-4…FR-6 loads the user. So 401 always comes before any 400.
+> 2.2: Insert order in the transaction: booking -> idempotency_key -> booking_seat. A parallel request with the same key blocks on the key PK; after the first commits it gets 23505 -> rollback -> reads the key in a new transaction -> replays (or 422 if the hash differs). The AC checks both parallel responses are 201 with the same body.
+> 2.3/3.1: buildSeed(now) in src/app/seed.ts returns plain data with fixed UUIDs. Used by db:seed (CLI in src/app/cli/, so depcruise sees it), by memory storage and by tests with now from Clock.
+> 2.4: created_at comes from Clock; order created_at desc, id desc; tests advance the clock between bookings.
+> 2.5: Scenario tests in test/scenarios/\*.test.ts run on both storages; postgres-only tests are \*.pg.test.ts and npm test excludes them.
+> 2.6: Separate ACs: 4xx in scenario tests; 500 through a throwing fake (also checks the single global handler); 503 after retries in a unit test.
+> 2.7: AC-4 asserts no retry happened for [a,b] vs [b,a].
+> 2.8: A module's infrastructure queries only its own tables; other data comes through ports with batch methods. Schema stays in src/shared/db/schema/, one file per module; depcruise forbids importing another module's schema file.
+> 2.9: DoD and checks.md updated; cancel order is a branch; key 1–255 chars; genres by name; try is forbidden by ESLint no-restricted-syntax in http/\*\* and application/\*\*.
+> 3.2: STORAGE=memory|postgres, default postgres.
+> 3.3: Tag lab2-in-memory on the last commit of the in-memory stage.
+> A2/A3: Ports written in architecture: showtimes.getByIds -> showtime + movie title (showtimes batches titles from movies); seats.getByHall, seats.getByIds.
+> Coverage: added ACs for response bodies, cancel-after-start, rollback across repositories, NFR-8. Not tool-checked on purpose: access checks in services and "pool passed once" (code review).
+>
+> Files updated locally again, not committed: specs/02-working-app.md, docs/api.md, docs/architecture.md, adr/0004-request-context-and-transactions.md, standards/checks.md, standards/definition-of-done.md. Re-read the diff and check it against my answers from both rounds. Anything unresolved or contradictory? Is every FR/NFR covered? Do not change any files.
+
+## Answer 3
+
+Your answers landed in five of the six files, but **`specs/02-working-app.md` didn't change this round**. It's byte-for-byte the version I reviewed last time. Its timestamp is 13:19, while `api.md`, `architecture.md`, ADR-0004 and `checks.md` are 13:34 and the DoD is 13:33. My guess is an unsaved editor buffer. Because the spec is stale, most of the coverage work isn't there yet, and two of the updated files now contradict it. I didn't change any files.
+
+### 1. The spec is stale
+
+None of these round-2 answers are in the spec yet:
+
+- **No new ACs.** It still has AC-1…AC-12. There are no ACs for response bodies, cancel after start, rollback across repositories or NFR-8, and no separate 4xx/500/503 ACs (2.6).
+- **AC-3** still says "no deadlock error". It doesn't assert that no retry happened (2.7). You wrote "AC-4" in your answer; I assume you meant AC-3.
+- **AC-4**'s parallel case still only checks "one booking". It doesn't check that both responses are `201` with the same body (2.2).
+- **AC-11** is still the manual `grep`. It doesn't mention the ESLint rule from `checks.md:6`.
+- `STORAGE=memory|postgres` with default `postgres` (3.2), the `lab2-in-memory` tag (3.3) and `buildSeed(now)` (Design:42) are all missing.
+
+**New mismatch caused by this:** ADR-0004 now points to the new numbering. Line 90 says `withRetry` is tested by "spec AC-11", and line 91 says context is tested by "AC-8". In the current spec those are the try/catch grep and the drizzle-import check. After you save the spec, please check that these numbers match.
+
+### 2. Answers checked against the other files
+
+| Answer                                            | Where                               | Status                                                                           |
+| ------------------------------------------------- | ----------------------------------- | -------------------------------------------------------------------------------- |
+| 2.1 onRequest (global + route-level)              | api.md:7, ADR:57                    | ✓                                                                                |
+| 2.2 insert order, conflict → replay               | api.md:51–53, arch:119, ADR:99      | ✓ written, but see 3.1                                                           |
+| 2.3 `buildSeed(now)`, CLI in `src/app/cli/`       | arch:52, checks:40                  | ✓ (spec Design not updated)                                                      |
+| 2.4 `created_at` from Clock, `id desc` tiebreaker | api.md:19,21, arch:107              | ✓                                                                                |
+| 2.5 `test/scenarios/`, `*.pg.test.ts`             | checks:10–11, 18–23                 | ✓                                                                                |
+| 2.8 own tables only, one schema file per module   | arch:41, 58                         | ✓, but see 3.3 and 3.4                                                           |
+| 2.9 DoD, cancel branch, key 1–255, genres, ESLint | DoD:7, api.md:14,23,31,45, checks:6 | ✓                                                                                |
+| 3.2 `STORAGE` default `postgres`                  | only implied by `checks.md:10–11`   | ✗ not in the spec or architecture.md, which only mention `buildApp({ storage })` |
+| 3.3 tag                                           | —                                   | ✗ (spec)                                                                         |
+| A2/A3 port table                                  | arch:23–31                          | ✓, but one port is missing (3.3)                                                 |
+
+### 3. New contradictions and problems
+
+**3.1. Replay needs a `try` in `application`, which ESLint now forbids.** ADR:99 says the repository rolls back and "the service handles it (replay)". But the conflict aborts the whole `uow.run` transaction. So the service has to catch an error _outside_ `uow.run` and start a new one to read the key. That's a `try`/`catch` in `bookings/application`, and `checks.md:6` bans every `try` there. A whole-function try is also exactly what NFR-4 is about. Possible fixes:
+
+- (a) a shared helper, such as `uow.runOrReplay(work, onConflict)` in `shared/db` or `withRetry` given a conflict handler, so the `catch` lives in `shared`;
+- (b) `uow.run` returns a result type instead of throwing on a key conflict;
+- (c) allow `.catch()` on the promise. The lint rule doesn't block that, but it gets around the rule's intent.
+
+→ Which one?
+
+**3.2. Tests share one database per run and only 2 seeded users.** `checks.md:23` creates a fresh DB per _run_, not per test or file, and Vitest runs files in parallel by default. Every test that books for user 1 changes the result of FR-6 "my bookings" for every other test. Two tests booking the same seed seat collide, so AC-3 and AC-4 become flaky. AC-10's "1 vs 20 items" depends on whatever other tests left behind. Memory storage has the same problem if one app instance is shared. Options:
+
+- truncate and reseed before each test;
+- one app/DB per file, with Vitest file parallelism off for `test:func`;
+- each test uses its own showtime and seats, plus more seeded users.
+
+→ Which one? It also decides whether "fresh DB per run" in NFR-8 and checks.md is the right wording.
+
+**3.3. `showtimes` has no port to get the hall number.** `cinema_hall` belongs to `seats` (arch:99), and arch:41 says infrastructure queries only its own tables. But `showtimes.getByIds` returns `hallNumber` (arch:28), and FR-2 returns `hall: { id, number }`. The port table has no `showtimes → seats` entry, for example `seats.getHallsByIds(ids)`. The graph does allow `showtimes → seats`. Two wording points:
+
+- the table says "all batch", but `seats.getByHall(hallId)` and `users.getById(id)` take a single id;
+- that's fine (one hall or one user per request), but then say "batch where a list is involved".
+
+**3.4. Cross-module FKs vs "one schema file per module".** For Drizzle to generate migrations with FKs, `bookings.ts` has to import `seat`/`showtime`/`users` from the other schema files (`references(() => seat.id)`). Arch:92 says cross-module FKs exist "only at the database level". That's fine, but it should say either:
+
+- schema files may import each other for FKs (the depcruise rule restricts only `infrastructure → schema`), or
+- cross-module FKs are written by hand in the SQL migrations.
+
+→ Which one? Note that the first option lets `bookings.ts` re-export another module's table.
+
+**3.5. `npm start` now needs a database by default.** With `STORAGE` defaulting to `postgres`, `npm run build && npm start; curl /version` in README:65–66 exits (NFR-5). So does the manual check in spec-01 AC-2. The README is planned for the end of the lab, but Lab 1's AC-2 is now only reproducible with `STORAGE=memory` or Docker running. I'd add one line about that to the README update.
+
+**3.6. Small items**
+
+- **Test setup and seeding:** `checks.md:23` says the fresh DB gets "migrations + seed". If the setup runs the `db:seed` CLI, it seeds with the real time while the tests use a fixed clock (my earlier 2.3). Say that test setup calls `buildSeed(clock.now())` directly.
+- **AsyncLocalStorage in Fastify hooks:** `als.run(store, …)` inside an async `onRequest` doesn't carry over to later hooks or the handler. It only works with `run(store, done)` in a callback-style hook, or with `enterWith`. This is an implementation detail and not a spec fix, but it's the one thing in ADR:57 most likely to break AC-6.
+- **"Own tables only":** the depcruise rule stops schema imports, not raw `` sql`… FROM seat` `` strings. That's fine, but code review has to catch it.
+- **spec-format.md:20:** the Design row still says "Links to `docs/architecture.md`" and doesn't mention `api.md`.
+- **Spec length:** once the new ACs go in, the spec will probably exceed one page. Shortening the FR table cells, since the details are now in `api.md`, would win it back.
+
+### 4. FR/NFR coverage
+
+Against the spec as it stands on disk, nothing has changed since round 2. **NFR-8 has no AC.** FR-1/FR-6 content, FR-5 cancel-after-start and NFR-3 transaction propagation are still uncovered, and AC-5 still includes `500`/`503`.
+
+If the spec you meant to save has ACs for response bodies, cancel after start, rollback across repositories, NFR-8 and the separate 4xx/500/503 cases, then everything is covered except the two you're leaving on purpose. On those:
+
+- **NFR-2 "access checks in services" and NFR-3 "pool passed once":** leaving them to code review is legitimate, and `spec-format.md:28` allows a "manual step". But the spec should say so. One way: append "; access checks and single pool creation — check: manual review" to AC-8 and AC-6. Otherwise a reader sees an NFR clause with no check.
+- **NFR-7:** still only FR-1, FR-3 and FR-6 are counted. That was your choice last round; I'm only noting it.
+
+Once the spec is saved I'll re-check that every AC has the `(covers …) — check:` format and that the ADR references match.
+
+### Questions
+
+1. The spec: can you save `specs/02-working-app.md` so I can review the real version?
+2. 3.1: how does the service replay without a `try` in `application`: (a) a shared helper, (b) a result type, or (c) `.catch()`?
+3. 3.2: how are tests isolated (reseed per test, DB per file with no file parallelism, or separate data per test)?
+4. 3.3: add `seats.getHallsByIds` for `showtimes`?
+5. 3.4: do schema files import each other for FKs, or are cross-module FKs SQL-only?
+6. 3.2 of last round: should `STORAGE` and its default go into the spec (NFR-1) or architecture.md?
