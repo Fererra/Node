@@ -108,6 +108,20 @@ export default {
       from: { path: '^src/shared/' },
       to: { path: '^src/(modules|app)/' },
     },
+    {
+      name: 'shared-kernel-only-kernel',
+      comment: 'shared/kernel → nothing else in src (not the rest of shared)',
+      severity: 'error',
+      from: { path: '^src/shared/kernel/' },
+      to: { path: '^src/', pathNot: '^src/shared/kernel/' },
+    },
+    {
+      name: 'shared-kernel-no-npm',
+      comment: 'shared/kernel → no npm packages',
+      severity: 'error',
+      from: { path: '^src/shared/kernel/' },
+      to: { dependencyTypes: npmDependencyTypes },
+    },
 
     // Layers inside a module (other modules are covered above)
     {
@@ -142,12 +156,12 @@ export default {
     },
     {
       name: 'layer-domain',
-      comment: 'domain → only shared',
+      comment: 'domain → only shared/kernel (and its own domain)',
       severity: 'error',
       from: { path: '^src/modules/([^/]+)/domain/' },
       to: {
         path: '^src/',
-        pathNot: ['^src/shared/', '^src/modules/$1/domain/'],
+        pathNot: ['^src/shared/kernel/', '^src/modules/$1/domain/'],
       },
     },
 

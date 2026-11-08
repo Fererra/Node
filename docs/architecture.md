@@ -36,14 +36,15 @@ App and shared:
 
 - `src/app/` is the composition root and holds `/health` and `/version`. It imports modules only through `index.ts` and may import `shared`.
 - Modules don't import `app`.
-- Any module or layer may import `shared`; `shared` imports no module and not `app`.
+- Any module or layer except `domain` may import `shared`; `shared` imports no module and not `app`.
+- `src/shared/kernel/` holds plain types and helpers: no npm packages and no imports from the rest of `shared`. `domain` may import only `shared/kernel/`, so it can't reach a package through `shared`.
 
 Layers inside a module:
 
 - `http` → `application`
 - `infrastructure` → `application`, `domain`
 - `application` → `domain`; no framework or ORM packages (`fastify`, `drizzle-orm`)
-- `domain` → only `shared`; no npm packages
+- `domain` → only `shared/kernel/`; no npm packages
 - Ports live in `application/ports/`. `http` maps application errors to HTTP codes.
 - Layer folders appear when code appears.
 - "Packages" means npm packages, including type-only imports; Node built-ins (`node:*`) are allowed. Framework packages are `fastify` and `@fastify/*`.
