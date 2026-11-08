@@ -31,6 +31,12 @@ const npmDependencyTypes = [
 const frameworkPackages =
   '^(node_modules/)?(fastify|@fastify/[^/]+|drizzle-orm)(/|$)';
 
+/** Database packages, resolved or not (drizzle-orm, pg). */
+const databasePackages = '^(node_modules/)?(drizzle-orm|pg)(/|$)';
+
+/** Module infrastructure layers. */
+const infrastructure = '^src/modules/[^/]+/infrastructure/';
+
 /** Shared ports and helpers any layer except domain may use (ADR-0004). */
 const sharedCore =
   '^src/shared/(context|unit-of-work|clock|retry|logger|errors)\\.ts$';
@@ -142,6 +148,45 @@ export default {
       severity: 'error',
       from: { path: sharedCore },
       to: { path: '^src/', pathNot: [sharedCore, '^src/shared/kernel/'] },
+    },
+
+    // Database (NFR-2, AC-10)
+    {
+      name: 'db-packages-only-in-infrastructure-and-shared-db',
+      comment:
+        'drizzle-orm and pg only in module infrastructure and src/shared/db/',
+      severity: 'error',
+      from: { path: '^src/', pathNot: [infrastructure, '^src/shared/db/'] },
+      to: { path: databasePackages },
+    },
+    {
+      name: 'pg-only-in-shared-db',
+      comment: 'The driver (pg) is used only by src/shared/db/',
+      severity: 'error',
+      from: { path: '^src/', pathNot: '^src/shared/db/' },
+      to: { path: '^(node_modules/)?pg(/|$)' },
+    },
+    {
+      name: 'shared-db-only-from-infrastructure-and-app',
+      comment:
+        'Only module infrastructure and src/app/ may import src/shared/db/',
+      severity: 'error',
+      from: {
+        path: '^src/',
+        pathNot: [infrastructure, '^src/app/', '^src/shared/db/'],
+      },
+      to: { path: '^src/shared/db/' },
+    },
+    {
+      name: 'infrastructure-only-own-schema',
+      comment:
+        "A module's infrastructure imports only its own schema file (src/shared/db/schema/<module>.ts)",
+      severity: 'error',
+      from: { path: '^src/modules/([^/]+)/infrastructure/' },
+      to: {
+        path: '^src/shared/db/schema/',
+        pathNot: '^src/shared/db/schema/$1\\.ts$',
+      },
     },
 
     // Layers inside a module (other modules are covered above)
