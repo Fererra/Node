@@ -4,7 +4,7 @@ Backend for booking cinema tickets. Admins manage movies, halls and showtimes, u
 
 The app is a modular monolith: one application, split into modules that talk to each other only through their public interfaces.
 
-Based on my earlier coursework ([Fererra/coursework](https://github.com/Fererra/coursework), Express + TypeORM + JS). This repo is a redesign with a new stack and structure.
+Based on the previous version of this project ([Fererra/coursework](https://github.com/Fererra/coursework), Express + TypeORM + JS). This repo is a redesign with a new stack and structure.
 
 ## Features
 
@@ -31,7 +31,7 @@ Not included for now:
 
 ## Stack
 
-- Node.js
+- Node.js 26
 - TypeScript
 - Fastify
 - PostgreSQL
@@ -46,7 +46,18 @@ Not included for now:
 
 ## Getting started
 
-Requires Node 26 (see `.nvmrc`).
+Requires Node 26 (see `.nvmrc`). Older Node versions are not supported: `npm ci` fails on the `engines` check.
+
+Node 26 was the latest major release when the project started. There is no requirement to support older versions, so the project targets only this one. Use a version manager to install it:
+
+```bash
+# nvm (macOS / Linux) or fnm read .nvmrc
+nvm install && nvm use
+# nvm-windows doesn't read .nvmrc
+nvm install 26 && nvm use 26
+```
+
+Then:
 
 ```bash
 npm ci
