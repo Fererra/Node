@@ -31,6 +31,19 @@ const npmDependencyTypes = [
 const frameworkPackages =
   '^(node_modules/)?(fastify|@fastify/[^/]+|drizzle-orm)(/|$)';
 
+/** Database packages, resolved or not (drizzle-orm, pg). */
+const databasePackages = '^(node_modules/)?(drizzle-orm|pg)(/|$)';
+
+/** Module infrastructure layers. */
+const infrastructure = '^src/modules/[^/]+/infrastructure/';
+
+/** A module's entry point (assembly point). */
+const moduleIndex = '^src/modules/[^/]+/index\\.ts$';
+
+/** Shared ports and helpers any layer except domain may use (ADR-0004). */
+const sharedCore =
+  '^src/shared/(context|unit-of-work|clock|retry|logger|errors)\\.ts$';
+
 /** @type {import('dependency-cruiser').IConfiguration} */
 export default {
   forbidden: [
@@ -121,6 +134,70 @@ export default {
       severity: 'error',
       from: { path: '^src/shared/kernel/' },
       to: { dependencyTypes: npmDependencyTypes },
+    },
+
+    {
+      name: 'shared-core-no-npm',
+      comment:
+        'Shared ports and helpers (context, unit-of-work, clock, retry, logger, errors) → no npm packages',
+      severity: 'error',
+      from: { path: sharedCore },
+      to: { dependencyTypes: npmDependencyTypes },
+    },
+    {
+      name: 'shared-core-only-shared-core',
+      comment:
+        'Shared ports and helpers import only each other and shared/kernel, so a port never pulls in an implementation',
+      severity: 'error',
+      from: { path: sharedCore },
+      to: { path: '^src/', pathNot: [sharedCore, '^src/shared/kernel/'] },
+    },
+
+    // Database (NFR-2, AC-10)
+    {
+      name: 'db-packages-only-in-infrastructure-and-shared-db',
+      comment:
+        'drizzle-orm and pg only in module infrastructure and src/shared/db/',
+      severity: 'error',
+      from: { path: '^src/', pathNot: [infrastructure, '^src/shared/db/'] },
+      to: { path: databasePackages },
+    },
+    {
+      name: 'pg-only-in-shared-db',
+      comment: 'The driver (pg) is used only by src/shared/db/',
+      severity: 'error',
+      from: { path: '^src/', pathNot: '^src/shared/db/' },
+      to: { path: '^(node_modules/)?pg(/|$)' },
+    },
+    {
+      name: 'shared-db-only-from-infrastructure-app-and-index',
+      comment:
+        "Only module infrastructure, src/app/ and a module's index.ts may import src/shared/db/",
+      severity: 'error',
+      from: {
+        path: '^src/',
+        pathNot: [infrastructure, moduleIndex, '^src/app/', '^src/shared/db/'],
+      },
+      to: { path: '^src/shared/db/' },
+    },
+    {
+      name: 'index-only-type-imports-from-shared-db',
+      comment:
+        "A module's index.ts imports src/shared/db/ only with `import type` (to type the storage option)",
+      severity: 'error',
+      from: { path: moduleIndex },
+      to: { path: '^src/shared/db/', dependencyTypesNot: ['type-only'] },
+    },
+    {
+      name: 'infrastructure-only-own-schema',
+      comment:
+        "A module's infrastructure imports only its own schema file (src/shared/db/schema/<module>.ts)",
+      severity: 'error',
+      from: { path: '^src/modules/([^/]+)/infrastructure/' },
+      to: {
+        path: '^src/shared/db/schema/',
+        pathNot: '^src/shared/db/schema/$1\\.ts$',
+      },
     },
 
     // Layers inside a module (other modules are covered above)

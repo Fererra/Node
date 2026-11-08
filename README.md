@@ -25,6 +25,8 @@ What's in this course:
 
 Not included for now:
 
+- admin CRUD for movies, halls and showtimes (data comes from a seed)
+- real authentication (users are identified by the `X-User-Id` header, a stub)
 - tariffs and payments
 - email/push notifications
 - deployment
@@ -46,7 +48,7 @@ Not included for now:
 
 ## Getting started
 
-Requires Node 26 (see `.nvmrc`). Older Node versions are not supported: `npm ci` fails on the `engines` check.
+Requires Node 26 (see `.nvmrc`) and Docker. Older Node versions are not supported.
 
 Node 26 was the latest major release when the project started. There is no requirement to support older versions, so the project targets only this one. Use a version manager to install it:
 
@@ -61,7 +63,18 @@ Then:
 
 ```bash
 npm ci
-npm run check
+cp .env.example .env            # DATABASE_URL, TEST_DATABASE_URL, STORAGE=postgres
+docker compose up -d --wait     # PostgreSQL on localhost:55432
+npm run db:migrate && npm run db:seed
 npm run build && npm start
-curl localhost:3000/version
+curl localhost:3000/movies
+```
+
+Without Docker, the app also runs on in-memory data: `STORAGE=memory npm start`.
+
+Checks:
+
+```bash
+npm run check       # format, lint, types, module boundaries, unit and in-memory tests, build
+npm run test:func   # the same scenarios on PostgreSQL (needs the container)
 ```

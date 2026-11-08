@@ -8,6 +8,21 @@ on:
 jobs:
   check:
     runs-on: ubuntu-latest
+    services:
+      # The test database for test:func (standards/checks.md).
+      postgres:
+        image: postgres:18.1-alpine
+        env:
+          POSTGRES_USER: cinema
+          POSTGRES_PASSWORD: cinema
+          POSTGRES_DB: cinema_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U cinema -d cinema_test"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 15
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -16,3 +31,6 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run check
+      - run: npm run test:func
+        env:
+          TEST_DATABASE_URL: postgres://cinema:cinema@localhost:5432/cinema_test

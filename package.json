@@ -8,7 +8,7 @@
     "node": ">=26 <27"
   },
   "scripts": {
-    "start": "node scripts/start.mjs",
+    "start": "node --env-file-if-exists=.env scripts/start.mjs",
     "check": "npm run format:check && npm run lint && npm run check:fast",
     "check:fast": "npm run typecheck && npm run deps:check && npm run test && npm run build",
     "format": "prettier --write .",
@@ -18,7 +18,10 @@
     "deps:check": "depcruise src --config .dependency-cruiser.mjs",
     "test": "vitest run",
     "build": "tsc -p tsconfig.build.json",
-    "prepare": "husky"
+    "prepare": "husky",
+    "db:migrate": "npm run build && node --env-file-if-exists=.env dist/app/cli/migrate.js",
+    "db:seed": "npm run build && node --env-file-if-exists=.env dist/app/cli/seed.js",
+    "test:func": "vitest run --config vitest.func.config.ts"
   },
   "lint-staged": {
     "*": "prettier --check --ignore-unknown",
@@ -29,7 +32,9 @@
     "@commitlint/config-conventional": "21.2.4",
     "@eslint/js": "10.0.1",
     "@types/node": "26.6.5",
+    "@types/pg": "8.23.1",
     "dependency-cruiser": "18.7.0",
+    "drizzle-kit": "0.31.11",
     "eslint": "10.13.0",
     "globals": "17.13.0",
     "husky": "9.1.7",
@@ -40,6 +45,8 @@
     "vitest": "5.0.5"
   },
   "dependencies": {
-    "fastify": "5.12.7"
+    "drizzle-orm": "0.45.4",
+    "fastify": "5.12.7",
+    "pg": "8.23.1"
   }
 }
