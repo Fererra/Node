@@ -14,6 +14,11 @@ export interface CurrentUser {
 export interface RequestContext {
   readonly requestId: string;
   user?: CurrentUser;
+  /**
+   * The transaction of the current `uow.run`, set only by `shared/db/`.
+   * Opaque here, so this file stays free of the ORM.
+   */
+  readonly transaction?: unknown;
 }
 
 const storage = new AsyncLocalStorage<RequestContext>();
