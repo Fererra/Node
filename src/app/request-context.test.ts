@@ -120,10 +120,20 @@ describe('request context', () => {
 });
 
 describe('buildApp storage', () => {
-  it('refuses postgres with a clear error until the DB stage', () => {
+  it('refuses postgres without a database URL', () => {
     expect(() => buildApp({ storage: 'postgres' })).toThrow(
-      /STORAGE=postgres is not implemented yet/,
+      /STORAGE=postgres needs DATABASE_URL/,
     );
+  });
+
+  it('with postgres, fails to start when the database is unavailable (NFR-5)', async () => {
+    // Nothing listens on port 1: SELECT now() in onReady fails.
+    const app = buildApp({
+      storage: 'postgres',
+      databaseUrl: 'postgres://nobody:nothing@127.0.0.1:1/none',
+    });
+    await expect(app.ready()).rejects.toMatchObject({ code: 'ECONNREFUSED' });
+    await app.close();
   });
 });
 

@@ -5,6 +5,7 @@ export interface Config {
   host: string;
   gitSha: string;
   storage: Storage;
+  databaseUrl: string | undefined;
 }
 
 /** `STORAGE` env value; unset or empty means `postgres` (NFR-1). */
@@ -22,5 +23,6 @@ export function loadConfig(env: NodeJS.ProcessEnv): Config {
     host: env.HOST ?? '127.0.0.1',
     gitSha: env.GIT_SHA || 'unknown',
     storage: parseStorage(env.STORAGE),
+    databaseUrl: env.DATABASE_URL || undefined,
   };
 }

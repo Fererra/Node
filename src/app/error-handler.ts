@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { isDatabaseUnavailableError } from '../shared/db/errors.js';
 import { AppError, type ErrorCode } from '../shared/errors.js';
 
 /** HTTP status of each error code (docs/api.md#errors). */
@@ -56,6 +57,13 @@ export function describeError(error: unknown): DescribedError {
   }
   if (isFastifyClientError(error)) {
     return { status: 400, code: 'VALIDATION_ERROR', message: error.message };
+  }
+  if (isDatabaseUnavailableError(error)) {
+    return {
+      status: STATUS_BY_CODE.SERVICE_UNAVAILABLE,
+      code: 'SERVICE_UNAVAILABLE',
+      message: 'The database is unavailable, try again later',
+    };
   }
   return { status: 500, code: 'INTERNAL_ERROR', message: INTERNAL_MESSAGE };
 }

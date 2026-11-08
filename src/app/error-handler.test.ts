@@ -68,6 +68,24 @@ describe('global error handler', () => {
     await app.close();
   });
 
+  it('turns a database-unavailable error into 503 SERVICE_UNAVAILABLE (FR-9)', async () => {
+    const refused = Object.assign(
+      new Error('connect ECONNREFUSED 127.0.0.1:55432'),
+      { code: 'ECONNREFUSED' },
+    );
+    const app = await appThrowing(
+      new Error('Failed query: select 1', { cause: refused }),
+    );
+    const res = await app.inject({ method: 'GET', url: '/test/throw' });
+
+    expect(res.statusCode).toBe(503);
+    expect(res.json<{ error: Record<string, unknown> }>().error).toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+    });
+    expect(res.body).not.toContain('55432');
+    await app.close();
+  });
+
   it('turns any other error into 500 INTERNAL_ERROR with a generic message', async () => {
     const app = await appThrowing(new Error('secret connection string'));
     const res = await app.inject({ method: 'GET', url: '/test/throw' });
