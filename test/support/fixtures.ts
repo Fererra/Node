@@ -2,7 +2,7 @@
 // it may write to any table (docs/architecture.md#rules).
 import { randomUUID } from 'node:crypto';
 import { sql } from 'drizzle-orm';
-import { truncateAll } from '../../src/app/db-seed.js';
+import { truncateAll } from '../../src/shared/db/seed.js';
 import { buildSeed, seedIds } from '../../src/app/seed.js';
 import * as schema from '../../src/shared/db/schema/index.js';
 import { NOW } from './app.js';
