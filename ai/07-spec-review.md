@@ -132,3 +132,134 @@ I read all the files and the current `src/` skeleton. I didn't change anything. 
 6. C1–C3: idempotency for parallel requests, failed first requests, and hashing.
 7. B2/B3: do you want an error-code table and response-body shapes in the spec?
 8. D: should I propose the missing ACs (NFR-4, NFR-8, NFR-6 "never on 409", NFR-7 for the other endpoints, FR-8 header)?
+
+---
+
+## Prompt 2
+
+> General: API contract details (error codes, response bodies, check order, idempotency rules) go to a new docs/api.md; the spec links to it to stay within one page. spec-format.md will say "shared architecture and API contract live in docs/".
+> A1: The in-memory repository checks all seats first and writes only if all are free, synchronously, with no await between check and write.
+> A2: FR-3 is served by bookings: hall via the showtimes port, seats via the seats port, taken from its own booking_seat. The graph doesn't change.
+> A3: Yes, through the showtimes port with a batch method getByIds returning showtime + movie title. Rule: cross-module ports offer batch methods (NFR-7).
+> A4/A5/A6: buildApp({ storage: 'memory' | 'postgres' }). Smoke test and npm test (pre-push) use memory; test:func (CI) runs the same scenario test files with postgres. "Unchanged" = test files unchanged, only setup differs. NFR-5 applies to postgres only. checks.md will be updated. Scripts: db:migrate, db:seed.
+> A7: Retries are a pure withRetry function in shared (no npm), unit-tested; the DB uow.run uses it.
+> A8: READ COMMITTED; seatIds sorted before insert; 23505 on the booking_seat PK -> 409; "3" = 3 attempts in total; exhausted -> 503. 40001 is rare at READ COMMITTED; retries mainly cover 40P01.
+> A9: ADR-0004 will say "infrastructure and src/app/". Architecture: shared ports (UnitOfWork, Clock) live in src/shared/ as an exception. README is updated at the end of the lab.
+> B1: started = starts_at <= now, now from a Clock port (app clock). Tests use a fixed clock; the seed builds times relative to now.
+> B2: Yes, an error-code table in docs/api.md. Validation errors and unknown routes also use the FR-9 body; 500 -> INTERNAL_ERROR with a generic message.
+> B3: 201 and cancel 200 return the same booking body { id, showtimeId, status, seats, createdAt }; replay -> 201 with the same body. Ordering: movies by title, showtimes by startsAt, my bookings by createdAt desc, including cancelled ones.
+> B4: Order: 401 -> 400 (headers, body schema, UUIDs) -> idempotency (replay or 422) -> 404 showtime -> 422 started -> 422 seat not in hall (a nonexistent seat too) -> 409. FR-5 gets 400 bad id.
+> B5: An already cancelled booking -> 200 always, even after start (status is checked first). Someone else's -> 404.
+> B6: Malformed X-User-Id -> 401. The header is ignored on FR-1..FR-3. The user is loaded in a preHandler only on FR-4..FR-6 (one query, constant for NFR-7).
+> B7: Response header X-Request-Id. A client ID is accepted if it matches [A-Za-z0-9_-]{1,64}, otherwise a UUID is generated. "Every log line" = every line within a request.
+> C1: The key row is written in the same transaction as the booking; a parallel second request waits on the PK lock and, after the first commits, replays its result.
+> C2: Failed requests are not stored; the key can be reused. booking_id is NOT NULL; ER becomes Booking ||--o{ IdempotencyKey.
+> C3: Hash of { showtimeId, sorted seatIds }; [a,b] equals [b,a].
+> C4: Replay returns the booking's current state (may be CANCELLED).
+> C5: Key up to 255 chars; expiry is out of scope.
+> C6: Same transaction; a retry rewrites both rows.
+> D: One Drizzle schema in src/shared/db/schema/, migrations in drizzle/; cross-module FKs exist only at DB level. FR-3 for a past showtime is allowed. AC-3 gets an overlapping multi-seat case. Yes, please propose the missing ACs; I'll choose.
+>
+> I applied my answers to the files locally, not committed: specs/02-working-app.md, new docs/api.md, docs/architecture.md, adr/0004-request-context-and-transactions.md, standards/checks.md, standards/spec-format.md. I added the missing ACs myself (AC-1 changed, AC-9…AC-12). Re-read the diff (git diff and docs/api.md) and check it against my answers. Is anything unresolved, or are there new contradictions? Is every FR/NFR covered by an AC? Do not change any files.
+
+## Answer 2
+
+Most of your answers made it into the files correctly. I found two real contradictions, one mechanism that doesn't work as written, a few answers that didn't land, and NFR-8, which still has no AC. I didn't change any files.
+
+### 1. Answers that didn't land, or landed differently
+
+| Answer                                                    | Status                                                                                                                                                                                 |
+| --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A2: hall via the showtimes port, seats via the seats port | Only "served by `bookings`" is written down (architecture.md, spec FR-3). Which port provides what isn't stated anywhere. That's minor.                                                |
+| A3: `getByIds` returns showtime + movie title             | The general batch rule is there. The fact that the showtimes port returns the movie title is not, and `showtimes` then needs its own batch call to `movies` for FR-6 to stay constant. |
+| B6: the user is loaded in a `preHandler`                  | That's written in `docs/api.md:7`, but it conflicts with the order of checks (see 2.1). ADR-0004:57 still says `onRequest` starts the context with `{ requestId, user }`.              |
+| A9 / ADR-0004 Decision                                    | It lists `context.ts`, `unit-of-work.ts` and `retry.ts`, but not `clock.ts`, which architecture.md does list.                                                                          |
+| C6: a retry rewrites both rows                            | Implied by the rollback but not written. Fine as it is.                                                                                                                                |
+| E (my first review): seed                                 | Still open: fixed IDs, one seed source for memory and postgres, and where the seed script lives. See 3.1.                                                                              |
+| `npm start`                                               | Which storage it uses, and how it's chosen (env var? default?), isn't specified.                                                                                                       |
+| A9: "README at the end of the lab"                        | Nothing records this (no AC, no DoD item), so it can get lost.                                                                                                                         |
+
+### 2. New contradictions and problems
+
+**2.1. The 401-before-400 order can't work with a `preHandler`** (`docs/api.md:7` vs `:43`). In Fastify, `preHandler` runs after body parsing and schema validation. A request with no `X-User-Id` and a bad body therefore gets `400`, not `401`. Malformed JSON also fails in the parsing step, which comes before `preValidation`. Only a route-level `onRequest` hook runs before every possible 400. That also matches ADR-0004:57.
+→ Should the user be loaded in a route-level `onRequest` hook, with api.md and ADR-0004 saying so?
+
+**2.2. "A parallel request with the same key waits and then replays" (`api.md:53`) doesn't happen with a plain implementation.** The second request's `SELECT` on the key doesn't see the first request's uncommitted row, so it continues. What happens next depends on insert order:
+
+- If seats go in before the key, the second request blocks on the `booking_seat` PK and then gets `409 SEAT_TAKEN`. That's not a replay, and AC-4's parallel case still passes, because there is "one booking".
+- If the key goes in before the seats (booking → key → seats, since `booking_id` is NOT NULL), it blocks on the key PK and gets `23505`. But the transaction is aborted by then, and `withRetry` only retries `40001`/`40P01`.
+
+Replay needs an explicit step: on `23505` on the `idempotency_key` PK, roll back, then read the key in a new transaction and replay it (or return `422` if the hash differs).
+→ Do you want that written down (insert order + the "key conflict → replay" step)? Should AC-4 also check that the second response is `201` with the same body?
+
+**2.3. Fixed test clock vs a seed built relative to "now"** (spec Design:42, AC-12). `db:seed` runs as a CLI with the real time. Tests use a fixed clock. The seeded showtimes won't line up with the test's `now`, so AC-12's "a showtime at `now`" doesn't exist.
+→ Should the seed be a function `seed(now)` that both `db:seed` and the test setup call with the clock's `now`?
+
+**2.4. `createdAt desc` is non-deterministic under a fixed clock.** All bookings in a test get the same `createdAt`, so FR-6's order is undefined and an order assertion will be flaky. Two things are missing: a tiebreaker, and a rule that `created_at` comes from `Clock`, not from the DB default.
+→ What should the tiebreaker be? Note that `id` is a random UUID.
+
+**2.5. "Same files" isn't exactly true** (`checks.md:18`, AC-1). AC-3, AC-10 and AC-4's parallel case are postgres-only. `npm test` (`vitest run`) picks up every test file, so it needs a way to exclude these. You need a convention, such as `*.func.test.ts` or `describe.skipIf(storage === 'memory')`, and a rule for which files `test:func` includes.
+→ Which convention do you want?
+
+**2.6. AC-5 asks for "every error in `docs/api.md`"**, which includes `503` and `500`. Neither can come from a scenario test on the seed data, and AC-7 already makes `503` a manual check. AC-5 should either exclude them or say they are triggered with a fake repository that throws.
+
+**2.7. AC-3 can't tell sorted inserts from retries.** Without sorting, `[a,b]` vs `[b,a]` deadlocks, gets `40P01`, is retried, and then returns `409`. The visible result is the same: one `201`, one `409`, "no deadlock error". To test the sorting itself, assert one attempt (from a retry counter or log) or check the insert order in a unit test.
+
+**2.8. Schema in `shared/db/schema/` vs module boundaries.** Every module's `infrastructure` can import every table, so `bookings` can join `seat`/`showtime`/`movie` directly and skip the ports. That's especially tempting for AC-10. Nothing checks this.
+→ Is it allowed (for example, read-only joins for queries), or forbidden by a rule like "infrastructure queries only its module's tables"? If it's forbidden, how is it checked?
+
+**2.9. Small items**
+
+- DoD line 7 still says CI "runs `npm run check`". It now also runs `test:func`.
+- `checks.md:11` calls only the PostgreSQL tests "Vitest + `fastify.inject`", but the in-memory scenario tests use `inject` too.
+- `api.md:45` reads as one chain (`already CANCELLED -> 200 -> 422 …`). It should be a branch: "if `CANCELLED` → `200`, else if started → `422`, else cancel".
+- `Idempotency-Key` with an empty string: say "1–255 chars".
+- FR-1: what order are `genres` in?
+- AC-11: the `grep` only runs by hand. An ESLint `no-restricted-syntax: TryStatement` override for `http/**` and `application/**` would enforce it in pre-commit and CI. AC-11 is also stricter than NFR-4 ("whole functions"), and that's fine. But "one global error handler" from NFR-4 isn't checked at all.
+- The spec is at the edge of one page, mostly because of the long FR table lines.
+
+### 3. Still unresolved
+
+**3.1. Seed.**
+
+- Fixed UUIDs for the 2 users and key entities, so tests can send `X-User-Id`?
+- One seed module shared by memory and postgres?
+- Where does it live? If it's under `scripts/` it imports `drizzle-orm` outside `src/`, so AC-8 / depcruise don't see it. That's probably fine, but say so.
+
+**3.2. `npm start` storage.** Which storage, chosen by which config, and what's the default?
+
+**3.3. The two stages in AC-1.** How does a reviewer find "the in-memory commit": a tag, or a hash in `docs/evidence/`?
+
+### 4. FR/NFR coverage by AC
+
+| Req       | ACs                           | Gap                                                                                                                                                                                                                                                                           |
+| --------- | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| FR-1      | AC-1, AC-5, AC-10             | No AC checks the content (genre names, by title). AC-1 only says the tests run on both storages, not what they check.                                                                                                                                                         |
+| FR-2      | AC-1, AC-5, AC-12             | OK. Order by `startsAt` isn't explicit.                                                                                                                                                                                                                                       |
+| FR-3      | AC-2, AC-5, AC-10             | OK                                                                                                                                                                                                                                                                            |
+| FR-4      | AC-2, AC-3, AC-4, AC-5, AC-12 | See 2.2 (parallel replay)                                                                                                                                                                                                                                                     |
+| FR-5      | AC-2, AC-5                    | "Already cancelled → `200` even after start" (B5) isn't tested                                                                                                                                                                                                                |
+| FR-6      | AC-1, AC-10                   | No AC checks the fields, cancelled-included or order (2.4)                                                                                                                                                                                                                    |
+| FR-7      | AC-5                          | OK                                                                                                                                                                                                                                                                            |
+| FR-8      | AC-6                          | OK                                                                                                                                                                                                                                                                            |
+| FR-9      | AC-5, AC-7                    | See 2.6                                                                                                                                                                                                                                                                       |
+| NFR-1     | AC-1                          | 3.3                                                                                                                                                                                                                                                                           |
+| NFR-2     | AC-8                          | Imports only. "Access checks in services" isn't checked.                                                                                                                                                                                                                      |
+| NFR-3     | AC-6                          | Logs only. No AC checks that cross-module repositories join one transaction, or that the pool is passed once.                                                                                                                                                                 |
+| NFR-4     | AC-11                         | "One global error handler" isn't checked                                                                                                                                                                                                                                      |
+| NFR-5     | AC-7                          | OK (manual)                                                                                                                                                                                                                                                                   |
+| NFR-6     | AC-3, AC-9                    | Two gaps: nothing checks that exhausted retries become `503`, and `READ COMMITTED` is never asserted                                                                                                                                                                          |
+| NFR-7     | AC-10                         | FR-2, FR-4 (10 seats), FR-5 aren't counted. That's your choice, but NFR-7 says "each endpoint".                                                                                                                                                                               |
+| **NFR-8** | **none**                      | **Uncovered**: Docker on a non-default port, a fresh DB per run, `db:migrate`/`db:seed`, CI running `test:func`. One possible AC: "CI log shows `test:func` against the service container; `docker compose up` + `db:migrate` + `db:seed` from the README work; port ≠ 5432". |
+| NFR-9     | AC-12                         | Depends on 2.3                                                                                                                                                                                                                                                                |
+
+### Questions
+
+1. 2.1: load the user in a route-level `onRequest` hook instead of `preHandler`?
+2. 2.2: write down the insert order (booking → key → seats) and the "key PK conflict → roll back → replay" step, and make AC-4 assert that the second parallel response is the same `201` body?
+3. 2.3 / 3.1: a `seed(now)` function shared by `db:seed`, memory storage and tests, with fixed UUIDs?
+4. 2.4: what tiebreaker for `createdAt desc`, and does `created_at` come from `Clock`?
+5. 2.5: how are postgres-only tests separated from `npm test`?
+6. 2.8: may a module's infrastructure query other modules' tables?
+7. 3.2: how does `npm start` choose its storage?
+8. NFR-8: should I propose an AC wording, or do you have one?
