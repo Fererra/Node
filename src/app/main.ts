@@ -2,7 +2,11 @@ import { buildApp } from './app.js';
 import { loadConfig } from './config.js';
 
 const config = loadConfig(process.env);
-const app = buildApp({ gitSha: config.gitSha, logger: true });
+const app = buildApp({
+  storage: config.storage,
+  gitSha: config.gitSha,
+  logger: true,
+});
 
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.once(signal, () => {

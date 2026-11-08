@@ -11,7 +11,7 @@ describe('smoke', () => {
   });
 
   it('starts without DATABASE_URL and GET /health returns 200 { status: "ok" }', async () => {
-    const app = buildApp({ gitSha: 'unknown' });
+    const app = buildApp({ storage: 'memory' });
     await app.ready();
 
     const res = await app.inject({ method: 'GET', url: '/health' });

@@ -3,7 +3,7 @@ import { buildApp } from './app.js';
 import { loadConfig } from './config.js';
 
 async function getVersion(env: NodeJS.ProcessEnv): Promise<unknown> {
-  const app = buildApp({ gitSha: loadConfig(env).gitSha });
+  const app = buildApp({ storage: 'memory', gitSha: loadConfig(env).gitSha });
   const res = await app.inject({ method: 'GET', url: '/version' });
   await app.close();
 
