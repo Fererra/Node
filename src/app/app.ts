@@ -60,7 +60,9 @@ export function buildApp({
   const movies = createMoviesModule({
     storage: { kind: 'memory', seed: seed.movies },
   });
-  const seats = createSeatsModule();
+  const seats = createSeatsModule({
+    storage: { kind: 'memory', seed: seed.seats },
+  });
   const showtimes = createShowtimesModule();
   const bookings = createBookingsModule();
 

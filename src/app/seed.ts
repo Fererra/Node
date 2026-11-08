@@ -1,4 +1,5 @@
 import type { MoviesSeed } from '../modules/movies/index.js';
+import type { SeatsSeed } from '../modules/seats/index.js';
 
 /**
  * Seed data with fixed UUIDs (docs/architecture.md). Times are relative
@@ -7,6 +8,7 @@ import type { MoviesSeed } from '../modules/movies/index.js';
  */
 export interface Seed {
   movies: MoviesSeed;
+  seats: SeatsSeed;
 }
 
 /** `<prefix>-0000-4000-8000-<n, 12 digits>`: one prefix per entity type. */
@@ -29,7 +31,26 @@ export const seedIds = {
     /** A movie without showtimes. */
     quietField: fixedId('20000000', 4),
   },
+  halls: {
+    one: fixedId('30000000', 1),
+    two: fixedId('30000000', 2),
+  },
 } as const;
+
+/** Halls: number -> rows x seats per row; the last row is VIP. */
+const HALL_LAYOUT = [
+  { id: seedIds.halls.one, number: 1, rows: 3, perRow: 4 },
+  { id: seedIds.halls.two, number: 2, rows: 2, perRow: 3 },
+] as const;
+
+/**
+ * Fixed seat id: `40000000-0000-4000-8000-00HH00RR00NN` for hall number
+ * HH, row RR, seat NN, e.g. hall 1, row 2, seat 3 -> `...000100020003`.
+ */
+export function seedSeatId(hall: number, row: number, number: number): string {
+  const part = (n: number) => String(n).padStart(4, '0');
+  return `40000000-0000-4000-8000-${part(hall)}${part(row)}${part(number)}`;
+}
 
 const { genres: g, movies: m } = seedIds;
 
@@ -87,6 +108,23 @@ export function buildSeed(): Seed {
         { movieId: m.nightGarden, genreId: g.comedy },
         { movieId: m.nightGarden, genreId: g.animation },
       ],
+    },
+    seats: {
+      halls: HALL_LAYOUT.map((h) => ({ id: h.id, hallNumber: h.number })),
+      seats: HALL_LAYOUT.flatMap((hall) =>
+        Array.from({ length: hall.rows }, (_, r) => r + 1).flatMap((row) =>
+          Array.from({ length: hall.perRow }, (_, n) => n + 1).map(
+            (number) => ({
+              id: seedSeatId(hall.number, row, number),
+              hallId: hall.id,
+              row,
+              number,
+              seatType:
+                row === hall.rows ? ('VIP' as const) : ('STANDARD' as const),
+            }),
+          ),
+        ),
+      ),
     },
   };
 }
