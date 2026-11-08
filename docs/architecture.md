@@ -44,7 +44,7 @@ Between modules:
 
 Module entry point:
 
-- `index.ts` is the module's assembly point. It may import all layers of its own module, but nothing from other modules.
+- `index.ts` is the module's assembly point. It may import all layers of its own module, but nothing from other modules. It may `import type` from `shared/db/` to type the factory's `storage` option; value imports from `shared/db/` stay forbidden.
 - It exports the factory, the service interface, DTO types and error types.
 
 App and shared:
