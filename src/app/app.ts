@@ -1,5 +1,7 @@
 import Fastify, { type FastifyInstance } from 'fastify';
 import { systemClock, type Clock } from '../shared/clock.js';
+import type { Logger } from '../shared/logger.js';
+import { inMemoryUnitOfWork } from '../shared/unit-of-work.js';
 import { createAuthModule } from '../modules/auth/index.js';
 import { createBookingsModule } from '../modules/bookings/index.js';
 import { createMoviesModule } from '../modules/movies/index.js';
@@ -54,6 +56,9 @@ export function buildApp({
 
   void app.register(systemRoutes, { gitSha });
 
+  // Long-lived resources are created once and passed to modules (ADR-0001).
+  const log: Logger = app.log;
+
   // In-memory storage starts from the seed, built for the app's "now".
   const seed = buildSeed(clock.now());
 
@@ -75,7 +80,15 @@ export function buildApp({
     seats: seats.service,
     clock,
   });
-  const bookings = createBookingsModule();
+  const bookings = createBookingsModule({
+    storage: { kind: 'memory' },
+    showtimes: showtimes.service,
+    seats: seats.service,
+    users: users.service,
+    uow: inMemoryUnitOfWork,
+    clock,
+    log,
+  });
 
   for (const module of [users, auth, movies, seats, showtimes, bookings]) {
     void app.register(module.plugin);
