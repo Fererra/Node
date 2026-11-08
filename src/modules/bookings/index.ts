@@ -1,12 +1,10 @@
+import type { PostgresStorage } from '../../shared/db/database.js';
 import type { AppModule } from '../../shared/module.js';
 import { createBookingsService } from './application/bookings.service.js';
 import type { BookingsServiceDeps } from './application/bookings.service.js';
 import type { BookingsService } from './application/bookings.types.js';
 import { bookingsRoutes } from './http/bookings.routes.js';
-import {
-  DrizzleBookingsRepository,
-  type PostgresStorage,
-} from './infrastructure/drizzle-bookings.repository.js';
+import { DrizzleBookingsRepository } from './infrastructure/drizzle-bookings.repository.js';
 import { InMemoryBookingsRepository } from './infrastructure/in-memory-bookings.repository.js';
 
 export type {

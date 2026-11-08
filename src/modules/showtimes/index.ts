@@ -1,4 +1,5 @@
 import type { Clock } from '../../shared/clock.js';
+import type { PostgresStorage } from '../../shared/db/database.js';
 import type { AppModule } from '../../shared/module.js';
 import type { MoviesPort } from './application/ports/movies.port.js';
 import type { SeatsPort } from './application/ports/seats.port.js';
@@ -6,10 +7,7 @@ import { createShowtimesService } from './application/showtimes.service.js';
 import type { ShowtimesService } from './application/showtimes.types.js';
 import { showtimesRoutes } from './http/showtimes.routes.js';
 import { InMemoryShowtimesRepository } from './infrastructure/in-memory-showtimes.repository.js';
-import {
-  DrizzleShowtimesRepository,
-  type PostgresStorage,
-} from './infrastructure/drizzle-showtimes.repository.js';
+import { DrizzleShowtimesRepository } from './infrastructure/drizzle-showtimes.repository.js';
 import type { ShowtimesSeed } from './infrastructure/showtimes.seed.js';
 
 export type {

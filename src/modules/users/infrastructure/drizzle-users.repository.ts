@@ -5,8 +5,6 @@ import { users } from '../../../shared/db/schema/users.js';
 import type { UsersRepository } from '../application/ports/users.repository.js';
 import type { UserSummary } from '../application/users.types.js';
 
-export type { PostgresStorage } from '../../../shared/db/database.js';
-
 export class DrizzleUsersRepository implements UsersRepository {
   readonly #db: Database;
 

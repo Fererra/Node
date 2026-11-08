@@ -1,11 +1,9 @@
+import type { PostgresStorage } from '../../shared/db/database.js';
 import type { AppModule } from '../../shared/module.js';
 import { createUsersService } from './application/users.service.js';
 import type { UsersService } from './application/users.types.js';
 import { InMemoryUsersRepository } from './infrastructure/in-memory-users.repository.js';
-import {
-  DrizzleUsersRepository,
-  type PostgresStorage,
-} from './infrastructure/drizzle-users.repository.js';
+import { DrizzleUsersRepository } from './infrastructure/drizzle-users.repository.js';
 import type { UsersSeed } from './infrastructure/users.seed.js';
 
 export type { UserSummary, UsersService } from './application/users.types.js';

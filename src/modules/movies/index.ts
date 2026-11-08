@@ -1,12 +1,10 @@
+import type { PostgresStorage } from '../../shared/db/database.js';
 import type { AppModule } from '../../shared/module.js';
 import { createMoviesService } from './application/movies.service.js';
 import type { MoviesService } from './application/movies.types.js';
 import { moviesRoutes } from './http/movies.routes.js';
 import { InMemoryMoviesRepository } from './infrastructure/in-memory-movies.repository.js';
-import {
-  DrizzleMoviesRepository,
-  type PostgresStorage,
-} from './infrastructure/drizzle-movies.repository.js';
+import { DrizzleMoviesRepository } from './infrastructure/drizzle-movies.repository.js';
 import type { MoviesSeed } from './infrastructure/movies.seed.js';
 
 export type {

@@ -37,6 +37,9 @@ const databasePackages = '^(node_modules/)?(drizzle-orm|pg)(/|$)';
 /** Module infrastructure layers. */
 const infrastructure = '^src/modules/[^/]+/infrastructure/';
 
+/** A module's entry point (assembly point). */
+const moduleIndex = '^src/modules/[^/]+/index\\.ts$';
+
 /** Shared ports and helpers any layer except domain may use (ADR-0004). */
 const sharedCore =
   '^src/shared/(context|unit-of-work|clock|retry|logger|errors)\\.ts$';
@@ -167,15 +170,23 @@ export default {
       to: { path: '^(node_modules/)?pg(/|$)' },
     },
     {
-      name: 'shared-db-only-from-infrastructure-and-app',
+      name: 'shared-db-only-from-infrastructure-app-and-index',
       comment:
-        'Only module infrastructure and src/app/ may import src/shared/db/',
+        "Only module infrastructure, src/app/ and a module's index.ts may import src/shared/db/",
       severity: 'error',
       from: {
         path: '^src/',
-        pathNot: [infrastructure, '^src/app/', '^src/shared/db/'],
+        pathNot: [infrastructure, moduleIndex, '^src/app/', '^src/shared/db/'],
       },
       to: { path: '^src/shared/db/' },
+    },
+    {
+      name: 'index-only-type-imports-from-shared-db',
+      comment:
+        "A module's index.ts imports src/shared/db/ only with `import type` (to type the storage option)",
+      severity: 'error',
+      from: { path: moduleIndex },
+      to: { path: '^src/shared/db/', dependencyTypesNot: ['type-only'] },
     },
     {
       name: 'infrastructure-only-own-schema',

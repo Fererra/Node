@@ -5,8 +5,6 @@ import { genre, movie, movieGenre } from '../../../shared/db/schema/movies.js';
 import type { MoviesRepository } from '../application/ports/movies.repository.js';
 import type { MovieDto, MovieSummary } from '../application/movies.types.js';
 
-export type { PostgresStorage } from '../../../shared/db/database.js';
-
 /** Text order by code point, like `compareText` in memory. */
 const byCodePoint = (column: SQLWrapper) => sql`${column} collate "C"`;
 

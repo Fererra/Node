@@ -1,11 +1,9 @@
+import type { PostgresStorage } from '../../shared/db/database.js';
 import type { AppModule } from '../../shared/module.js';
 import { createSeatsService } from './application/seats.service.js';
 import type { SeatsService } from './application/seats.types.js';
 import { InMemorySeatsRepository } from './infrastructure/in-memory-seats.repository.js';
-import {
-  DrizzleSeatsRepository,
-  type PostgresStorage,
-} from './infrastructure/drizzle-seats.repository.js';
+import { DrizzleSeatsRepository } from './infrastructure/drizzle-seats.repository.js';
 import type { SeatsSeed } from './infrastructure/seats.seed.js';
 
 export type {

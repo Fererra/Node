@@ -7,8 +7,6 @@ import type {
   ShowtimesRepository,
 } from '../application/ports/showtimes.repository.js';
 
-export type { PostgresStorage } from '../../../shared/db/database.js';
-
 const columns = {
   id: showtime.id,
   movieId: showtime.movieId,

@@ -16,8 +16,6 @@ import type {
   SaveResult,
 } from '../application/ports/bookings.repository.js';
 
-export type { PostgresStorage } from '../../../shared/db/database.js';
-
 /** The booking's seat ids, sorted, as one column: no query per booking. */
 const seatIdsColumn = sql<string[]>`coalesce(
   (select array_agg(${bookingSeat.seatId}::text order by ${bookingSeat.seatId})

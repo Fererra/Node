@@ -9,8 +9,6 @@ import type {
   SeatSummary,
 } from '../application/seats.types.js';
 
-export type { PostgresStorage } from '../../../shared/db/database.js';
-
 export class DrizzleSeatsRepository implements SeatsRepository {
   readonly #db: Database;
 
