@@ -376,3 +376,111 @@ Once the spec is saved I'll re-check that every AC has the `(covers …) — che
 4. 3.3: add `seats.getHallsByIds` for `showtimes`?
 5. 3.4: do schema files import each other for FKs, or are cross-module FKs SQL-only?
 6. 3.2 of last round: should `STORAGE` and its default go into the spec (NFR-1) or architecture.md?
+
+---
+
+## Prompt 4
+
+> Sorry, the spec wasn't saved last time; it is now. Round 3 answers:
+>
+> 3.1: No try or catch needed. The key is claimed first with INSERT … ON CONFLICT DO NOTHING RETURNING; under READ COMMITTED a parallel claim waits, then returns nothing and the committed key is visible, so the service replays. The FK idempotency_key.booking_id is DEFERRABLE INITIALLY DEFERRED, so the key goes first. Order: key -> checks -> booking -> booking_seat (ON CONFLICT DO NOTHING; fewer rows -> 409). Any failure rolls back the key too.
+> 3.2: test:func runs files one at a time; the DB is migrated once per run and reset + reseeded before each test. Memory tests create a new buildApp per test.
+> 3.3: Added seats.getHallsByIds for showtimes; the table says "batch where a list is involved".
+> 3.4: Schema files may import each other for FKs; the depcruise rule applies only to module infrastructure.
+> Old 3.2: STORAGE (default postgres) is in NFR-1.
+> Coverage: manual review noted in AC-8 (pool created once) and AC-10 (access checks).
+> AC numbering: in your previous note, AC-4 was right for the "no retry" case.
+>
+> Files updated locally, not committed: specs/02-working-app.md (saved), docs/api.md, docs/architecture.md, adr/0004-request-context-and-transactions.md, standards/checks.md. Re-read the diff and check it against my answers from all three rounds. Anything unresolved or contradictory? Do the ADR's AC references match the spec? Do not change any files.
+
+## Answer 4
+
+Everything now covers your answers from all three rounds. Every FR/NFR has an AC, and the ADR's AC references match the spec. I found one real contradiction (the in-memory stage vs claiming the key first), one stale sentence in ADR-0004, and a few small gaps. I didn't change any files.
+
+### 1. ADR and other references
+
+Every FR/NFR/AC reference in ADR-0004, `architecture.md` and `api.md` points to the right item:
+
+| Where   | Reference    | Spec item                                                  | OK  |
+| ------- | ------------ | ---------------------------------------------------------- | --- |
+| ADR:11  | FR-8         | request ID in logs                                         | ✓   |
+| ADR:14  | NFR-3, NFR-2 | context without parameters; SQL out of routes and services | ✓   |
+| ADR:90  | AC-11        | `withRetry` unit tests                                     | ✓   |
+| ADR:91  | AC-8         | `requestId`/`userId` in logs, test captures logs           | ✓   |
+| ADR:93  | NFR-1        | two stages                                                 | ✓   |
+| arch:32 | FR-4…FR-6    | user loading                                               | ✓   |
+
+You were right about the numbering: AC-4 (the parallel bookings) is where "no retry" lives.
+
+### 2. Answers checked against the files
+
+| Answer                                                                            | Where                                  | Status                                       |
+| --------------------------------------------------------------------------------- | -------------------------------------- | -------------------------------------------- |
+| 3.1 claim key first, deferred FK, `ON CONFLICT DO NOTHING`, no `try`              | api.md:51–55, arch:106,114,120, ADR:99 | ✓ for postgres; see 3.1 and 3.2 for the rest |
+| 3.2 one file at a time, reset and reseed per test, new `buildApp` per memory test | checks.md:23, NFR-8                    | ✓, see 3.3                                   |
+| 3.3 `seats.getHallsByIds`, "batch where a list is involved"                       | arch:23,27,41, NFR-7                   | ✓                                            |
+| 3.4 schema files import each other for FKs                                        | arch:59                                | ✓                                            |
+| Old 3.2 `STORAGE`, default `postgres`                                             | NFR-1, arch:52                         | ✓                                            |
+| Old 3.3 tag `lab2-in-memory`                                                      | NFR-1, AC-1                            | ✓                                            |
+| Manual review for "pool created once" and access checks                           | AC-8, AC-10                            | ✓                                            |
+| Earlier rounds (contract, order of checks, ESLint, seed, clock, ports)            | spec, api.md, arch, checks, DoD        | ✓, nothing lost in the rewrite               |
+
+The claim mechanism itself is sound under `READ COMMITTED`. The second `INSERT … ON CONFLICT DO NOTHING` waits for the first transaction. If that one commits, the insert returns no row, and the next `SELECT` takes a fresh snapshot and sees the committed key. If it rolls back, the second insert claims the key. Because the app generates IDs, the key can carry the booking ID before the booking row exists, and the deferred FK allows that.
+
+### 3. Remaining problems
+
+**3.1. Claiming the key first doesn't work in the in-memory stage.** ADR:93 (from A1) says in-memory repositories "check everything first and write only if all checks pass", because the in-memory UoW has no rollback. The documented order (api.md:51, arch:120) starts with a write: claim the key, then run the checks. In memory, a request that then fails with `404`/`422`/`409` leaves the key behind. That breaks two things:
+
+- "a failed request stores nothing, so the key can be reused" (api.md:53);
+- part of AC-5/AC-6 on the memory run.
+
+The fix is one sentence in api.md or ADR:93: "in memory: look up the key → run all checks → write key, booking and seats in one synchronous step". The observable behaviour, including the check order in api.md:43, stays the same.
+
+**3.2. ADR:100 still uses the old seat-conflict example.** It says repositories translate "the `booking_seat` primary key, `23505` -> 'seat taken' -> `409`". With `ON CONFLICT DO NOTHING` there's no `23505` on `booking_seat` any more. The repository returns a row count, and the service _throws_ `SeatTaken` inside `work` so that `uow.run` rolls back. That throw is fine: it's a throw, not a `try`. But the example now contradicts ADR:99 and api.md:51,55. It also helps to say explicitly that the 409 path rolls back because the service throws (api.md:51 only says "fewer rows → 409").
+
+**3.3. Which database does `test:func` use locally?** NFR-8 used to say "a separate database per test run". Now it says "reset and reseed before each test", and checks.md:23 says "migrated once per run". Nothing says it's a _different_ database from the one `db:seed` fills for local development. If `test:func` uses the same `DATABASE_URL`, every run wipes your dev data.
+→ Should there be a separate test database, for example `cinema_test` via its own `DATABASE_URL` in the test setup?
+
+**3.4. Where does the "20 items" data for AC-12 come from?** FR-6 is easy, because the test creates 20 bookings. For FR-1 (20 movies) and FR-3 (a hall with 1 seat vs 20 seats) there's no admin API, and `buildSeed(now)` is the fixed seed. Either the seed contains those shapes (for example, a 1-seat hall and a 20-seat hall), or tests insert extra rows through a helper.
+→ Which one? If it's a helper, the helper writes to every module's tables, so say it lives in `test/` and not in a module.
+
+**3.5. Deferrable FK and Drizzle.** As far as I know, Drizzle's `foreignKey()` builder doesn't support `DEFERRABLE INITIALLY DEFERRED`; please check your version. If it doesn't, that one constraint has to be written in SQL in a migration. The next `drizzle-kit generate` may then try to "fix" it. Worth a line next to arch:106 if it turns out to be the case.
+
+**3.6. Small items**
+
+- **AC-4 "with no retry":** the check doesn't say how a test observes that. You need a retry counter or log line from `withRetry`, for example `attempt` in the log captured by the AC-8 helper.
+- **AC-10 "a module imports only its own schema file":** that should be "a module's `infrastructure` …", since `application` can't import `shared/db/` at all.
+- **spec-format.md:20:** the Design row still says "Links to `docs/architecture.md`", without `api.md`. This was raised last round and is still open.
+- **Coverage gaps you're accepting:** `READ COMMITTED` itself isn't asserted by any AC, and NFR-7 query counts skip FR-2 and FR-5. Both are fine as deliberate choices.
+
+### 4. Coverage
+
+| Req   | ACs                                            |
+| ----- | ---------------------------------------------- |
+| FR-1  | AC-2, AC-6, AC-12                              |
+| FR-2  | AC-2, AC-6, AC-13                              |
+| FR-3  | AC-2, AC-3, AC-6, AC-12                        |
+| FR-4  | AC-2, AC-3, AC-4, AC-5, AC-6, AC-12, AC-13     |
+| FR-5  | AC-2, AC-3, AC-6                               |
+| FR-6  | AC-2, AC-6, AC-12                              |
+| FR-7  | AC-6                                           |
+| FR-8  | AC-8                                           |
+| FR-9  | AC-6, AC-7, AC-14                              |
+| NFR-1 | AC-1                                           |
+| NFR-2 | AC-9, AC-10 (access checks: manual review)     |
+| NFR-3 | AC-8 (pool: manual review), AC-9               |
+| NFR-4 | AC-7                                           |
+| NFR-5 | AC-14                                          |
+| NFR-6 | AC-4, AC-11                                    |
+| NFR-7 | AC-12                                          |
+| NFR-8 | AC-15                                          |
+| NFR-9 | AC-13 (and the `createdAt` order through AC-2) |
+
+Every AC follows the `(covers …): … — check: …` format. AC-8 and AC-10 have two `check:` parts, which is readable and fine. The spec is also back to about one page.
+
+### Questions
+
+1. 3.1: add the in-memory order (look up the key → checks → one synchronous write)?
+2. 3.2: replace the `23505` example in ADR:100, and say that the 409 path rolls back because the service throws?
+3. 3.3: does `test:func` use a separate test database?
+4. 3.4: does the AC-12 data come from the seed or from a test helper?
