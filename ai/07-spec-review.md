@@ -484,3 +484,56 @@ Every AC follows the `(covers …): … — check: …` format. AC-8 and AC-10 h
 2. 3.2: replace the `23505` example in ADR:100, and say that the 409 path rolls back because the service throws?
 3. 3.3: does `test:func` use a separate test database?
 4. 3.4: does the AC-12 data come from the seed or from a test helper?
+
+---
+
+## Prompt 5
+
+> Round 4 answers:
+>
+> 3.1: In memory the order is: look up the key -> checks -> one synchronous write of key, booking and seats. Written in api.md and ADR-0004; the response and check order don't change.
+> 3.2: ADR example replaced: a taken seat gives fewer inserted rows, the service throws SeatTaken inside work, uow.run rolls back (key included) and rethrows; the handler maps it to 409. Throwing is allowed in application, catching is not.
+> 3.3: test:func uses a separate test database (TEST_DATABASE_URL), never the dev one. NFR-8 and checks.md updated.
+> 3.4: Extra rows for AC-12 come from test/support/fixtures.ts, outside src/ (so depcruise doesn't scan it; stated in checks.md).
+> 3.5: If Drizzle can't express the deferrable FK, it goes into a hand-written SQL migration; noted in architecture.md. To be verified during implementation.
+> 3.6: AC-4 observes retries through the attempt field logged by withRetry; AC-10 says "a module's infrastructure"; spec-format Design row links api.md. READ COMMITTED and query counts for FR-2/FR-5 stay outside the ACs on purpose.
+>
+> Files updated locally, not committed. Re-read the diff. Anything unresolved or contradictory? Do not change any files.
+
+## Answer 5
+
+Almost everything landed. Again, though, **two files weren't saved**: `standards/checks.md` (last modified 13:44, the previous round) and `standards/spec-format.md` (13:19, two rounds ago). The other four files are from 13:50–13:53. Apart from that, I found one small gap in the new in-memory rule. Nothing else is unresolved or contradictory. I didn't change any files.
+
+### 1. Answers that aren't on disk
+
+| Answer                                                | Expected in          | On disk                                                                                                                                                              |
+| ----------------------------------------------------- | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 3.3 `TEST_DATABASE_URL`                               | NFR-8 ✓, `checks.md` | `checks.md:23` still says only "the database is migrated once per run…", with no test database or `TEST_DATABASE_URL`                                                |
+| 3.4 fixtures outside `src/`, not scanned by depcruise | `checks.md`          | Not in `checks.md`. It _is_ in `architecture.md:60`, which is a fine place for it. Either keep it there and drop "stated in checks.md", or add one line to checks.md |
+| 3.6 Design row links `api.md`                         | `spec-format.md:20`  | Still "Links to `docs/architecture.md`"                                                                                                                              |
+
+### 2. Gap: in-memory "one synchronous step"
+
+ADR:93 and api.md:52 say in memory the order is "look up the key → checks → one synchronous write, with no `await` in between". But the checks call other modules' ports (`showtimes.getByIds`, `seats.getByIds`), and those are async. So there _are_ `await`s between the lookup and the write.
+
+Two parallel requests in memory (same key, or the same seat) can both pass the lookup and the checks, and then both write. Tests don't hit this, because AC-4 and AC-5's parallel cases are `*.pg.test.ts` only. `STORAGE=memory` is still a real runtime mode, though.
+
+The fix: the final synchronous write re-checks that the key is unused and the seats are free right before writing, then writes or throws. The wording could be: "lookup and checks may await; the final write step is synchronous and re-checks key and seats".
+
+### 3. Everything else checks out
+
+- **3.1:** api.md:51–52 and ADR:93 describe the postgres and memory orders separately. The response and check order are unchanged. ✓
+- **3.2:** ADR:99–101 now say that conflicts are detected by row count and the service throws `SeatTaken` inside `work`. `uow.run` rolls back and rethrows, and the handler maps it to `409`. "Throwing allowed, catching not" is consistent with NFR-4 and AC-7. The old `23505` example is gone. ✓
+- **3.4:** AC-12 names `test/support/fixtures.ts`, and arch:60 allows it to write to any table outside depcruise. ✓
+- **3.5:** arch:107 notes the hand-written SQL migration fallback. ✓
+- **3.6:** AC-4 says it observes retries through the `attempt` field, and ADR:90 matches. AC-10 says "a module's `infrastructure`". ✓ Leaving `READ COMMITTED` and the FR-2/FR-5 query counts out of the ACs is noted as deliberate.
+- **References:** ADR → AC-4, AC-8, AC-11, NFR-1, NFR-2, NFR-3, FR-8, and arch → FR-4…FR-6 all point to the right items in the current spec.
+- **Coverage:** every FR/NFR still has at least one AC (same table as last round). NFR-8 is covered by AC-15, and AC-15's "README setup works" lines up with your plan to update the README at the end of the lab.
+
+### Before committing
+
+1. Save `standards/checks.md` with `TEST_DATABASE_URL` (and, if you want, the fixtures line).
+2. Save the `standards/spec-format.md` Design row.
+3. Decide whether to reword the in-memory rule (section 2) in ADR:93 and api.md:52.
+
+After that I have nothing left to raise on this spec.
