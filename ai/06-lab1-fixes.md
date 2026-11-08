@@ -41,3 +41,10 @@ In `specs/01-foundation.md`, AC-7 now reads "…(h) …; `npm run deps:check` ex
 ## My notes
 
 The agent added two kernel rules (no npm, no imports from the rest of shared) on its own; they follow from the updated architecture rules, so I accepted them. It also found that AC-7 (i) was placed outside the check; fixed in the spec.
+
+My own check of AC-7 (i): a temporary `import type` of `shared/module.ts` in `movies/domain`:
+
+```text
+error layer-domain: src/modules/movies/domain/x.ts → src/shared/module.ts
+x 1 dependency violations (1 errors, 0 warnings).
+```
