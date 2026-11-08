@@ -31,6 +31,10 @@ const npmDependencyTypes = [
 const frameworkPackages =
   '^(node_modules/)?(fastify|@fastify/[^/]+|drizzle-orm)(/|$)';
 
+/** Shared ports and helpers any layer except domain may use (ADR-0004). */
+const sharedCore =
+  '^src/shared/(context|unit-of-work|clock|retry|logger|errors)\\.ts$';
+
 /** @type {import('dependency-cruiser').IConfiguration} */
 export default {
   forbidden: [
@@ -121,6 +125,23 @@ export default {
       severity: 'error',
       from: { path: '^src/shared/kernel/' },
       to: { dependencyTypes: npmDependencyTypes },
+    },
+
+    {
+      name: 'shared-core-no-npm',
+      comment:
+        'Shared ports and helpers (context, unit-of-work, clock, retry, logger, errors) → no npm packages',
+      severity: 'error',
+      from: { path: sharedCore },
+      to: { dependencyTypes: npmDependencyTypes },
+    },
+    {
+      name: 'shared-core-only-shared-core',
+      comment:
+        'Shared ports and helpers import only each other and shared/kernel, so a port never pulls in an implementation',
+      severity: 'error',
+      from: { path: sharedCore },
+      to: { path: '^src/', pathNot: [sharedCore, '^src/shared/kernel/'] },
     },
 
     // Layers inside a module (other modules are covered above)

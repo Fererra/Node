@@ -19,6 +19,28 @@ export default tseslint.config(
     },
   },
   {
+    // NFR-4: errors reach the one global error handler; http and
+    // application may throw, but never catch.
+    files: ['src/modules/*/http/**/*.ts', 'src/modules/*/application/**/*.ts'],
+    ignores: ['**/*.test.ts'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'TryStatement',
+          message:
+            'No try in http/ and application/: let errors reach the global error handler (NFR-4).',
+        },
+        {
+          selector:
+            "CallExpression[callee.type='MemberExpression'][callee.property.name='catch']",
+          message:
+            'No .catch() in http/ and application/: let errors reach the global error handler (NFR-4).',
+        },
+      ],
+    },
+  },
+  {
     files: ['**/*.{js,mjs,cjs}'],
     extends: [tseslint.configs.disableTypeChecked],
   },
