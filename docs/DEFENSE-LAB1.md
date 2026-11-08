@@ -22,9 +22,19 @@
 
   ![/version response](img/version.png)
 
-- AC-3, AC-4, AC-5, AC-7 checked by breaking them (temporary commits, pushes and imports; see `ai/02-implementation.md`, `ai/05-fixes.md`).
+- AC-3, AC-4, AC-5: my own run, breaking each check by hand: [`docs/evidence/lab1-hooks.md`](evidence/lab1-hooks.md). AC-7: temporary imports, see `ai/02-implementation.md`, `ai/05-fixes.md`, `ai/06-lab1-fixes.md`.
 - AC-8: `da874bc` (temporary lint error) -> CI [red run](https://github.com/Fererra/Node/actions/runs/40108138160), merge blocked; reverted in `c143e9d` -> CI [green run](https://github.com/Fererra/Node/actions/runs/40108299749).
 
   ![merge blocked by a failing check](img/merge-blocked.png)
 
-**5. Structure audit** (previous version -> this spec): the top-3 wrong dependencies were a `users <-> auth` cycle, an inverted `showtime -> booking` dependency, and imports of other modules' internal files. In this design they are forbidden by `docs/architecture.md#rules` and caught by `deps:check` (AC-6, AC-7); the new code has 0 violations.
+**5. Structure audit** (previous version -> this spec).
+
+Dropped from the previous version: Express (-> Fastify, ADR-0002), TypeORM (-> Drizzle, ADR-0003), tariffs (out of scope), and the shared `database/repositories/` folder that let modules bypass each other.
+
+Top-3 wrong dependencies in the previous version ([Fererra/coursework](https://github.com/Fererra/coursework/tree/0b3100b88227a53ad1f0d6cb76f8f79760231d76)):
+
+1. `users <-> auth` cycle: [auth.service.js:2](https://github.com/Fererra/coursework/blob/0b3100b88227a53ad1f0d6cb76f8f79760231d76/src/modules/auth/auth.service.js#L2) imports `usersService`; [users.service.js:1](https://github.com/Fererra/coursework/blob/0b3100b88227a53ad1f0d6cb76f8f79760231d76/src/modules/users/users.service.js#L1) and [update-user.dto.js:1](https://github.com/Fererra/coursework/blob/0b3100b88227a53ad1f0d6cb76f8f79760231d76/src/modules/users/dto/update-user.dto.js#L1) import from `auth`.
+2. Inverted `showtime -> booking`: [showtime.service.js:3](https://github.com/Fererra/coursework/blob/0b3100b88227a53ad1f0d6cb76f8f79760231d76/src/modules/showtime/showtime.service.js#L3); by design `bookings` depends on `showtimes`.
+3. Imports of other modules' internal files instead of a public contract: [users.service.js:3](https://github.com/Fererra/coursework/blob/0b3100b88227a53ad1f0d6cb76f8f79760231d76/src/modules/users/users.service.js#L3) (`../booking/booking.service.js`).
+
+In this design all three are forbidden by `docs/architecture.md#rules` and caught by `deps:check` (AC-6, AC-7); the new code has 0 violations.
