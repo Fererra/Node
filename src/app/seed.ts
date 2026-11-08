@@ -1,6 +1,7 @@
 import type { MoviesSeed } from '../modules/movies/index.js';
 import type { SeatsSeed } from '../modules/seats/index.js';
 import type { ShowtimesSeed } from '../modules/showtimes/index.js';
+import type { UsersSeed } from '../modules/users/index.js';
 
 /**
  * Seed data with fixed UUIDs (docs/architecture.md). Times are relative
@@ -11,6 +12,7 @@ export interface Seed {
   movies: MoviesSeed;
   seats: SeatsSeed;
   showtimes: ShowtimesSeed;
+  users: UsersSeed;
 }
 
 /** `<prefix>-0000-4000-8000-<n, 12 digits>`: one prefix per entity type. */
@@ -19,6 +21,10 @@ function fixedId(prefix: string, n: number): string {
 }
 
 export const seedIds = {
+  users: {
+    alice: fixedId('60000000', 1),
+    bob: fixedId('60000000', 2),
+  },
   genres: {
     animation: fixedId('10000000', 1),
     comedy: fixedId('10000000', 2),
@@ -184,6 +190,12 @@ export function buildSeed(now: Date): Seed {
           hallId: h.two,
           startsAt: at(27),
         },
+      ],
+    },
+    users: {
+      users: [
+        { id: seedIds.users.alice, name: 'Alice', email: 'alice@example.com' },
+        { id: seedIds.users.bob, name: 'Bob', email: 'bob@example.com' },
       ],
     },
   };

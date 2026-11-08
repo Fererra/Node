@@ -59,7 +59,9 @@ export function buildApp({
 
   // Dependency order from docs/architecture.md: a module is created after
   // the modules it depends on, so their services can be passed as deps.
-  const users = createUsersModule();
+  const users = createUsersModule({
+    storage: { kind: 'memory', seed: seed.users },
+  });
   const auth = createAuthModule();
   const movies = createMoviesModule({
     storage: { kind: 'memory', seed: seed.movies },
