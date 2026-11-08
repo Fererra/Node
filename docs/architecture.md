@@ -56,6 +56,8 @@ App and shared:
 - `src/shared/kernel/` holds plain types and helpers: no npm packages and no imports from the rest of `shared`. `domain` may import only `shared/kernel/`, so it can't reach a package through `shared`.
 - Shared ports are the one exception to "ports live in `application/ports/`": `src/shared/unit-of-work.ts` (`UnitOfWork`) and `src/shared/clock.ts` (`Clock`), because every module uses them.
 - `src/shared/context.ts` holds the request context (AsyncLocalStorage: `requestId`, `user`, current transaction) and `getContext()`. `src/shared/retry.ts` holds `withRetry`, a pure function with no packages that logs each attempt. Any layer except `domain` may use them (ADR-0004).
+- `src/shared/errors.ts` holds `AppError` with the error codes of `docs/api.md`; `src/shared/logger.ts` holds the `Logger` interface and the log fields taken from the context. Like the other shared files above, they import no npm packages, only each other and `shared/kernel/`.
+- The global error handler in `src/app/` maps error codes to HTTP statuses in one table; modules throw `AppError` and don't map statuses themselves.
 - `src/shared/db/` holds the DB pool, the `UnitOfWork` implementation and the "transaction or pool" executor; `src/shared/db/schema/` holds the Drizzle schema, one file per owning module (`movies.ts`, `seats.ts`, `showtimes.ts`, `users.ts`, `bookings.ts`). Schema files may import each other for foreign keys. Only module `infrastructure` layers and `src/app/` may import `shared/db/`, and a module's `infrastructure` may import only its own schema file. Migrations live in `drizzle/`.
 - Test-only code lives in `test/`, outside `src/`, and isn't checked by dependency-cruiser. `test/support/fixtures.ts` may write to any table to build data for size tests.
 
@@ -65,7 +67,7 @@ Layers inside a module:
 - `infrastructure` → `application`, `domain`
 - `application` → `domain`; no framework or ORM packages (`fastify`, `drizzle-orm`)
 - `domain` → only `shared/kernel/`; no npm packages
-- Ports live in `application/ports/` (except the shared ports above). `http` maps application errors to HTTP codes.
+- Ports live in `application/ports/` (except the shared ports above). Status codes come from the global error handler, not from `http`.
 - Layer folders appear when code appears.
 - "Packages" means npm packages, including type-only imports; Node built-ins (`node:*`) are allowed. Framework packages are `fastify` and `@fastify/*`.
 
