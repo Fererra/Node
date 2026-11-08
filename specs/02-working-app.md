@@ -6,56 +6,61 @@ The app has module skeletons but no behaviour: no scenario can be run through th
 
 ## Goal
 
-The main user path (browse -> choose seats -> book -> view / cancel) works through the HTTP API: first on in-memory data, then on PostgreSQL, with the same API and tests.
+The main user path (browse -> choose seats -> book -> view / cancel) works through the HTTP API: first on in-memory data, then on PostgreSQL, with the same API and the same scenario tests.
 
 ## Functional requirements
 
-| ID   | Endpoint                    | Behaviour                                                                                              | Errors                                                                                                                                                                                               |
-| ---- | --------------------------- | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| FR-1 | `GET /movies`               | Movies with genre names.                                                                               | —                                                                                                                                                                                                    |
-| FR-2 | `GET /movies/:id/showtimes` | Future showtimes of the movie, with hall number.                                                       | `400` bad id, `404` no movie                                                                                                                                                                         |
-| FR-3 | `GET /showtimes/:id/seats`  | All seats of the showtime's hall with type and `taken`.                                                | `400`, `404`                                                                                                                                                                                         |
-| FR-4 | `POST /bookings`            | `{ showtimeId, seatIds }` + `Idempotency-Key`; one transaction: `Booking` (`RESERVED`) + seats. `201`. | `400` missing `Idempotency-Key`, empty / duplicate / >10 seats, `404` showtime, `422` seat not in hall or showtime started, `409` a seat is taken (nothing booked), `422` same key with another body |
-| FR-5 | `POST /bookings/:id/cancel` | One transaction: `CANCELLED` + delete its `BookingSeat` rows. Repeated cancel -> `200`, same state.    | `404` missing or not mine, `422` showtime started                                                                                                                                                    |
-| FR-6 | `GET /me/bookings`          | My bookings with showtime, movie and seats.                                                            | —                                                                                                                                                                                                    |
+Bodies, error codes, order of checks and idempotency rules: [`docs/api.md`](../docs/api.md).
 
-- FR-7: FR-4…FR-6 need `X-User-Id` of a seeded user, else `401`. FR-1…FR-3 need no user.
-- FR-8: Every request has a business-process ID (`X-Request-Id` or generated), returned in the response and present in every log line.
-- FR-9: All errors have one body: `{ "error": { "code", "message", "requestId" } }`. Database unavailable -> `503`.
+- FR-1: `GET /movies` — movies with genre names.
+- FR-2: `GET /movies/:id/showtimes` — future showtimes of a movie with hall number.
+- FR-3: `GET /showtimes/:id/seats` — seats of the showtime's hall with type and `taken`; served by `bookings`.
+- FR-4: `POST /bookings` — `{ showtimeId, seatIds }` with a required `Idempotency-Key`; one transaction creates the key, `Booking` (`RESERVED`) and its seats; `201`.
+- FR-5: `POST /bookings/:id/cancel` — one transaction sets `CANCELLED` and frees the seats; an already cancelled booking -> `200`, same state.
+- FR-6: `GET /me/bookings` — my bookings, cancelled included, with showtime, movie title and seats.
+- FR-7: FR-4…FR-6 need `X-User-Id` of a seeded user, else `401`; FR-1…FR-3 ignore it.
+- FR-8: Every request has a business-process ID (`X-Request-Id` from the client if valid, else generated), returned in the response header and present in every log line within the request.
+- FR-9: All errors, including validation errors and unknown routes, have one body: `{ "error": { "code", "message", "requestId" } }`. Database unavailable -> `503`.
 
 ## Non-functional requirements
 
-- NFR-1: Two stages in history: in-memory repositories first, then Drizzle repositories behind the same ports.
-- NFR-2: Routes know only HTTP; services hold business rules and access checks and mark atomic steps with a `UnitOfWork` port; SQL and the transaction implementation live only in `infrastructure` and `src/shared/db/`.
-- NFR-3: Current user, request ID and the current transaction reach any layer without being passed as parameters (request context, ADR-0004); the DB pool is passed once to module factories at startup (ADR-0001).
-- NFR-4: One global error handler; no try/catch wrapping whole functions.
-- NFR-5: On start, the app runs `SELECT now()` and exits if the database is unavailable.
-- NFR-6: Booking and cancel transactions are retried up to 3 times on `40001` / `40P01`; never on `409`.
-- NFR-7: No N+1: each endpoint runs a fixed number of queries, independent of result size.
-- NFR-8: Local DB runs in Docker on a non-default port; tests use a separate database per run; CI runs functional tests with PostgreSQL.
+- NFR-1: `buildApp({ storage: 'memory' | 'postgres' })`; `npm start` reads `STORAGE` (default `postgres`). History has two stages: in-memory repositories first (tag `lab2-in-memory`), then Drizzle repositories behind the same ports.
+- NFR-2: Routes know only HTTP; services hold business rules and access checks and mark atomic steps with `UnitOfWork`; SQL and transactions live only in `infrastructure` and `src/shared/db/`. A module's `infrastructure` queries only its own tables.
+- NFR-3: Current user, request ID and transaction reach any layer without parameters (ADR-0004); the DB pool is created once and passed to module factories (ADR-0001).
+- NFR-4: One global error handler; no try/catch in `http` and `application`.
+- NFR-5: With `postgres`, the app runs `SELECT now()` on start and exits if the database is unavailable.
+- NFR-6: Booking and cancel run in `uow.run` at `READ COMMITTED`, up to 3 attempts in total on `40001` / `40P01`, then `503`.
+- NFR-7: No N+1: each endpoint runs a fixed number of queries; cross-module ports are batch where a list is involved.
+- NFR-8: Local DB in Docker on a non-default port; tests use a separate test database (`TEST_DATABASE_URL`), reset and reseeded before each test; `db:migrate`, `db:seed`; CI runs `test:func` with PostgreSQL.
+- NFR-9: "Now" and `created_at` come from a `Clock` port; "started" means `starts_at <= now`.
 
 ## Design
 
-Physical schema and the new `IdempotencyKey` table: [`docs/architecture.md#data`](../docs/architecture.md#data). Request context and `shared/db` rules: [`docs/architecture.md#rules`](../docs/architecture.md#rules), ADR-0004. Seed: halls, seats, movies, genres, showtimes, 2 users.
+Schema, ports, seed (`buildSeed(now)`, fixed UUIDs) and module rules: [`docs/architecture.md`](../docs/architecture.md). Context and transactions: ADR-0004.
 
 ## Acceptance criteria
 
-- AC-1 (covers FR-1…FR-6, NFR-1): every scenario has a functional test via `fastify.inject` — check: the scenario tests (AC-2, AC-4, AC-5) pass unchanged on the in-memory commit and on the DB commit; AC-3, AC-7 and AC-10 apply from the DB stage.
-- AC-2 (covers FR-4, FR-5): book -> seat `taken`; cancel -> seat free — check: functional test.
-- AC-3 (covers FR-4): two parallel bookings of one seat -> one `201`, one `409`, one `BookingSeat` row — check: functional test with `Promise.all`.
-- AC-4 (covers FR-4): same `Idempotency-Key` twice -> same booking, one row; other body -> `422` — check: functional test.
-- AC-5 (covers FR-4…FR-7): every error row of the table returns its status and the FR-9 body — check: functional tests.
-- AC-6 (covers FR-8, NFR-3): a booking request writes log lines from http, application and infrastructure with the same `requestId` and `userId` — check: test captures logs.
-- AC-7 (covers FR-9, NFR-5): DB stopped -> requests return `503`; app does not start without DB — check: manual, log in `docs/evidence/`.
-- AC-8 (covers NFR-2): `drizzle-orm` is imported only in module `infrastructure` and `src/shared/db/`; `shared/db/` is imported only by `infrastructure` and `src/app/` — check: `deps:check`, plus temporary imports of `drizzle-orm` in `application` and of `shared/db/` in `application` both fail.
-- AC-9 (covers NFR-6): a forced `40001` on the first attempt -> booking succeeds — check: unit test with a fake repository.
-- AC-10 (covers NFR-7): FR-1, FR-3, FR-6 run a constant number of queries for 1 and 20 items — check: test counts queries.
+- AC-1 (covers NFR-1): `test/scenarios/` passes with `memory` (`npm test`) and `postgres` (`npm run test:func`) — check: `npm test` on tag `lab2-in-memory`; both on the DB commit.
+- AC-2 (covers FR-1…FR-6): bodies, fields and order match `docs/api.md` — check: scenario tests.
+- AC-3 (covers FR-4, FR-5): book -> seat `taken`; cancel -> free; cancel again, even after start -> `200` — check: scenario test.
+- AC-4 (covers FR-4, NFR-6): parallel bookings of one seat -> `201` + `409`; `[a,b]` vs `[b,a]` -> `201` + `409` with no retry — check: `*.pg.test.ts`; retries are seen in the `attempt` field that `withRetry` logs.
+- AC-5 (covers FR-4): same key -> same body, one booking; `[b,a]` is the same request; other body -> `422`; two parallel requests with one key -> both `201`, same body — check: scenario test, parallel in `*.pg.test.ts`.
+- AC-6 (covers FR-1…FR-7, FR-9): every 4xx in `docs/api.md` returns its status, code and body, in the documented order — check: scenario tests.
+- AC-7 (covers FR-9, NFR-4): a throwing repository -> `500 INTERNAL_ERROR` from the global handler — check: test with a fake; ESLint forbids `try` in `http/**`, `application/**`.
+- AC-8 (covers FR-8, NFR-3): one `requestId` and `userId` in logs from http, application, infrastructure; `X-Request-Id` in the response; an invalid client ID is replaced — check: test captures logs; pool created once in `src/app/` — check: manual review.
+- AC-9 (covers NFR-2, NFR-3): a failure after the seats insert leaves no booking, seats or key — check: `*.pg.test.ts`.
+- AC-10 (covers NFR-2): `drizzle-orm` only in `infrastructure` and `shared/db/`; a module's `infrastructure` imports only its own schema file — check: `deps:check`, temporary forbidden imports fail; access checks are in services — check: manual review.
+- AC-11 (covers NFR-6): `withRetry` retries `40001` / `40P01` up to 3 attempts, not `23505`; exhausted -> `503` — check: unit tests.
+- AC-12 (covers NFR-7): same query count for FR-1, FR-3, FR-6 with 1 vs 20 items and FR-4 with 1 vs 10 seats — check: `*.pg.test.ts`, extra rows added by `test/support/fixtures.ts`.
+- AC-13 (covers NFR-9): fixed clock: a showtime at `now` is not listed; booking it -> `422 SHOWTIME_STARTED` — check: scenario test.
+- AC-14 (covers FR-9, NFR-5): DB stopped -> `503`; `postgres` start without DB exits — check: manual, `docs/evidence/`.
+- AC-15 (covers NFR-8): Compose port isn't `5432`; README setup works; CI runs `test:func` on a service container — check: CI run link, manual.
 
 ## Out of scope
 
 - Admin CRUD for movies, halls, showtimes: data comes from the seed.
-- Real authentication (users identified by `X-User-Id`, stub).
-- Payments, `PAID` status, tariffs.
+- Real authentication (`X-User-Id` stub).
+- Payments, `PAID`, tariffs; expiry of idempotency keys.
 
 ## Open questions
 
