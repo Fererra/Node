@@ -4,7 +4,7 @@ A task / PR is done when all items below are true.
 
 ## Checks
 
-- [ ] CI passes on the PR (runs `npm run check`, see `standards/checks.md`).
+- [ ] CI passes on the PR (runs `npm run check` and `npm run test:func`, see `standards/checks.md`).
 - [ ] `npm run check` passes locally.
 
 ## Module boundaries
