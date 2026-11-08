@@ -1,5 +1,6 @@
 import type { MoviesSeed } from '../modules/movies/index.js';
 import type { SeatsSeed } from '../modules/seats/index.js';
+import type { ShowtimesSeed } from '../modules/showtimes/index.js';
 
 /**
  * Seed data with fixed UUIDs (docs/architecture.md). Times are relative
@@ -9,6 +10,7 @@ import type { SeatsSeed } from '../modules/seats/index.js';
 export interface Seed {
   movies: MoviesSeed;
   seats: SeatsSeed;
+  showtimes: ShowtimesSeed;
 }
 
 /** `<prefix>-0000-4000-8000-<n, 12 digits>`: one prefix per entity type. */
@@ -35,7 +37,23 @@ export const seedIds = {
     one: fixedId('30000000', 1),
     two: fixedId('30000000', 2),
   },
+  showtimes: {
+    /** Orbit Nine, hall 1, a day ago. */
+    orbitPast: fixedId('50000000', 1),
+    /** Orbit Nine, hall 2, exactly `now`: started, not listed. */
+    orbitNow: fixedId('50000000', 2),
+    /** Orbit Nine, hall 2, in 2 hours. */
+    orbitSoon: fixedId('50000000', 3),
+    /** Orbit Nine, hall 1, in a day. */
+    orbitTomorrow: fixedId('50000000', 4),
+    /** Blue Harbor, hall 1, in 3 days. */
+    blueHarbor: fixedId('50000000', 5),
+    /** Night Garden, hall 2, in a day and 3 hours. */
+    nightGarden: fixedId('50000000', 6),
+  },
 } as const;
+
+const HOUR_MS = 60 * 60 * 1000;
 
 /** Halls: number -> rows x seats per row; the last row is VIP. */
 const HALL_LAYOUT = [
@@ -54,7 +72,9 @@ export function seedSeatId(hall: number, row: number, number: number): string {
 
 const { genres: g, movies: m } = seedIds;
 
-export function buildSeed(): Seed {
+export function buildSeed(now: Date): Seed {
+  const at = (hours: number) => new Date(now.getTime() + hours * HOUR_MS);
+  const { halls: h, showtimes: s } = seedIds;
   return {
     movies: {
       genres: [
@@ -125,6 +145,46 @@ export function buildSeed(): Seed {
           ),
         ),
       ),
+    },
+    showtimes: {
+      showtimes: [
+        {
+          id: s.orbitPast,
+          movieId: m.orbitNine,
+          hallId: h.one,
+          startsAt: at(-24),
+        },
+        {
+          id: s.orbitNow,
+          movieId: m.orbitNine,
+          hallId: h.two,
+          startsAt: at(0),
+        },
+        {
+          id: s.orbitSoon,
+          movieId: m.orbitNine,
+          hallId: h.two,
+          startsAt: at(2),
+        },
+        {
+          id: s.orbitTomorrow,
+          movieId: m.orbitNine,
+          hallId: h.one,
+          startsAt: at(24),
+        },
+        {
+          id: s.blueHarbor,
+          movieId: m.blueHarbor,
+          hallId: h.one,
+          startsAt: at(72),
+        },
+        {
+          id: s.nightGarden,
+          movieId: m.nightGarden,
+          hallId: h.two,
+          startsAt: at(27),
+        },
+      ],
     },
   };
 }

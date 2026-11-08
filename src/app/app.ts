@@ -1,4 +1,5 @@
 import Fastify, { type FastifyInstance } from 'fastify';
+import { systemClock, type Clock } from '../shared/clock.js';
 import { createAuthModule } from '../modules/auth/index.js';
 import { createBookingsModule } from '../modules/bookings/index.js';
 import { createMoviesModule } from '../modules/movies/index.js';
@@ -20,12 +21,15 @@ export interface AppOptions {
   storage: Storage;
   gitSha?: Config['gitSha'];
   logger?: LoggerOption;
+  /** Source of "now"; tests pass a fixed clock. */
+  clock?: Clock;
 }
 
 export function buildApp({
   storage,
   gitSha = 'unknown',
   logger = false,
+  clock = systemClock,
 }: AppOptions): FastifyInstance {
   if (storage === 'postgres') {
     throw new Error(
@@ -50,8 +54,8 @@ export function buildApp({
 
   void app.register(systemRoutes, { gitSha });
 
-  // In-memory storage starts from the seed.
-  const seed = buildSeed();
+  // In-memory storage starts from the seed, built for the app's "now".
+  const seed = buildSeed(clock.now());
 
   // Dependency order from docs/architecture.md: a module is created after
   // the modules it depends on, so their services can be passed as deps.
@@ -63,7 +67,12 @@ export function buildApp({
   const seats = createSeatsModule({
     storage: { kind: 'memory', seed: seed.seats },
   });
-  const showtimes = createShowtimesModule();
+  const showtimes = createShowtimesModule({
+    storage: { kind: 'memory', seed: seed.showtimes },
+    movies: movies.service,
+    seats: seats.service,
+    clock,
+  });
   const bookings = createBookingsModule();
 
   for (const module of [users, auth, movies, seats, showtimes, bookings]) {
