@@ -14,6 +14,7 @@ import {
   requestIdFor,
 } from './request-context.js';
 import { systemRoutes } from './routes.js';
+import { buildSeed } from './seed.js';
 
 export interface AppOptions {
   storage: Storage;
@@ -49,11 +50,16 @@ export function buildApp({
 
   void app.register(systemRoutes, { gitSha });
 
+  // In-memory storage starts from the seed.
+  const seed = buildSeed();
+
   // Dependency order from docs/architecture.md: a module is created after
   // the modules it depends on, so their services can be passed as deps.
   const users = createUsersModule();
   const auth = createAuthModule();
-  const movies = createMoviesModule();
+  const movies = createMoviesModule({
+    storage: { kind: 'memory', seed: seed.movies },
+  });
   const seats = createSeatsModule();
   const showtimes = createShowtimesModule();
   const bookings = createBookingsModule();
