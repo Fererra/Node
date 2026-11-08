@@ -3,6 +3,7 @@ import { buildApp } from '../../src/app/app.js';
 import { parseStorage, type Storage } from '../../src/app/config.js';
 import type { LoggerOption } from '../../src/app/logger.js';
 import type { Clock } from '../../src/shared/clock.js';
+import { testDatabaseUrl } from './db.js';
 
 /** "Now" of every test app; the seed is built relative to it. */
 export const NOW = new Date('2026-06-01T12:00:00.000Z');
@@ -33,14 +34,20 @@ export interface TestApp {
   clock: TestClock;
 }
 
-/** A new app per test, on fresh seed data. */
+/**
+ * A new app per test, on fresh seed data: in memory the app builds it;
+ * with postgres, test/support/pg-setup.ts reseeds the test database
+ * before each test.
+ */
 export async function createTestApp(
   options: { logger?: LoggerOption } = {},
 ): Promise<TestApp> {
   const clock = new TestClock();
+  const storage = testStorage();
   const app = buildApp({
-    storage: testStorage(),
+    storage,
     clock,
+    ...(storage === 'postgres' ? { databaseUrl: testDatabaseUrl() } : {}),
     ...(options.logger === undefined ? {} : { logger: options.logger }),
   });
   await app.ready();

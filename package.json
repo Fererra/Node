@@ -20,7 +20,8 @@
     "build": "tsc -p tsconfig.build.json",
     "prepare": "husky",
     "db:migrate": "npm run build && node --env-file-if-exists=.env dist/app/cli/migrate.js",
-    "db:seed": "npm run build && node --env-file-if-exists=.env dist/app/cli/seed.js"
+    "db:seed": "npm run build && node --env-file-if-exists=.env dist/app/cli/seed.js",
+    "test:func": "vitest run --config vitest.func.config.ts"
   },
   "lint-staged": {
     "*": "prettier --check --ignore-unknown",
