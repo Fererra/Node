@@ -26,17 +26,17 @@ Booking: `{ id, showtimeId, status, seats: [{ id, row, number }], createdAt }`. 
 
 Body: `{ "error": { "code", "message", "requestId" } }`.
 
-| Status | Code                     | When                                                                                                               |
-| ------ | ------------------------ | ------------------------------------------------------------------------------------------------------------------ |
-| `400`  | `VALIDATION_ERROR`       | malformed JSON, bad UUID in path or body, missing or empty `Idempotency-Key`, key > 255, 0 / >10 / duplicate seats |
-| `401`  | `UNAUTHORIZED`           | see `X-User-Id`                                                                                                    |
-| `404`  | `NOT_FOUND`              | unknown route, movie, showtime, or a booking that doesn't exist or isn't mine                                      |
-| `409`  | `SEAT_TAKEN`             | a requested seat is already booked; nothing is booked                                                              |
-| `422`  | `SHOWTIME_STARTED`       | `starts_at <= now` when booking or cancelling a `RESERVED` booking                                                 |
-| `422`  | `SEAT_NOT_IN_HALL`       | a seat doesn't exist or isn't in the showtime's hall                                                               |
-| `422`  | `IDEMPOTENCY_KEY_REUSED` | the key was used by this user with a different request                                                             |
-| `503`  | `SERVICE_UNAVAILABLE`    | database unavailable, or retries exhausted                                                                         |
-| `500`  | `INTERNAL_ERROR`         | anything else; generic message                                                                                     |
+| Status | Code                     | When                                                                                                                                                                                        |
+| ------ | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `400`  | `VALIDATION_ERROR`       | malformed JSON, unsupported content type (`415`) or body too large (`413`) from Fastify, bad UUID in path or body, missing or empty `Idempotency-Key`, key > 255, 0 / >10 / duplicate seats |
+| `401`  | `UNAUTHORIZED`           | see `X-User-Id`                                                                                                                                                                             |
+| `404`  | `NOT_FOUND`              | unknown route, movie, showtime, or a booking that doesn't exist or isn't mine                                                                                                               |
+| `409`  | `SEAT_TAKEN`             | a requested seat is already booked; nothing is booked                                                                                                                                       |
+| `422`  | `SHOWTIME_STARTED`       | `starts_at <= now` when booking or cancelling a `RESERVED` booking                                                                                                                          |
+| `422`  | `SEAT_NOT_IN_HALL`       | a seat doesn't exist or isn't in the showtime's hall                                                                                                                                        |
+| `422`  | `IDEMPOTENCY_KEY_REUSED` | the key was used by this user with a different request                                                                                                                                      |
+| `503`  | `SERVICE_UNAVAILABLE`    | database unavailable, or retries exhausted                                                                                                                                                  |
+| `500`  | `INTERNAL_ERROR`         | anything else; generic message                                                                                                                                                              |
 
 ## Order of checks
 
