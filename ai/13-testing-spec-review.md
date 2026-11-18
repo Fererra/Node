@@ -230,3 +230,63 @@ Every FR and NFR is covered by at least one AC. The one part still unchecked is 
 2. Should the env mapping for the E2E server (`DATABASE_URL`, `PORT`, `STORAGE`) go in FR-4 or only in `checks.md`?
 3. Is the ≥ 90 % for `bookings/application` a total over the folder?
 4. Do you want to update the ADR for function thresholds and Stryker config exclusions, or leave it to the spec?
+
+---
+
+## Prompt 4
+
+> Round 3 answers:
+>
+> 1: checks.md now lists the test set per command: npm test, test:coverage and Stryker exclude \*.pg.test.ts and \*.e2e.test.ts; Stryker uses vitest.config.ts (the npm test set).
+> 2: The per-file 100 % thresholds apply only to the FR-1 files: the coverage include of test:unit lists only them, so errors.ts doesn't count. The ≥ 90 % for bookings/application is a total over the folder.
+> 3: Env mapping in checks.md: for E2E the server, db:migrate and db:seed get DATABASE_URL=$E2E_DATABASE_URL; the server also gets PORT=3100 and STORAGE=postgres.
+> Smaller: ADR updated (function thresholds, config exclusions). "Exclusions" = mutator.excludedMutations and ignorers; ignorePatterns is allowed; AC-9 also reviews the config. A test in test/app/ checks that test/e2e/seed-ids.ts matches src/app/seed.ts. AC-7: port 3100 free afterwards, PostgreSQL still up. Database URLs are compared by database name. In E2E only the full-path test reads /me/bookings, with its own user. npm ci is a prerequisite in FR-4. AC-1/AC-2 keep "skipping one test" generic on purpose.
+>
+> Files updated locally, not committed. Re-read the diff and check it against my answers from all rounds. Anything unresolved or contradictory? Do not change any files.
+
+## Answer 4
+
+Everything from all three rounds is now in the files, I found no contradictions, and all four files pass Prettier. One real gap is left, plus one small efficiency note. I didn't change any files.
+
+### One gap: an old `.env` has no `E2E_DATABASE_URL`
+
+Your own `.env` (and anyone's copy of the old `.env.example`) has only `DATABASE_URL` and `TEST_DATABASE_URL`. FR-4 says the script reads `.env`, and falls back to `.env.example` only "if there is none". So with your current `.env`, `E2E_DATABASE_URL` would be missing. Nothing says what happens then:
+
+- fall back to `.env.example` per variable;
+- or stop with a clear message ("add `E2E_DATABASE_URL` to `.env`").
+
+Either works, but it should be written down. Otherwise the same-database check (NFR-3) would be comparing against an empty value. AC-6 covers the cases "no `.env`" and "an old volume", but not "an old `.env`".
+
+### Small note: the code gets built up to four times
+
+`db:migrate` and `db:seed` each run `npm run build` first, `check` builds too, and FR-4 adds its own "then builds". So one `make test` builds up to four times. That's slower but correct. To avoid it, the E2E step could call the built CLIs directly, or `test-all.mjs` could skip the extra build step. Your call.
+
+### Answers from all rounds against the files
+
+| Topic                                                                                                                   | Where it is now                                           |
+| ----------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| CI uses Docker Compose; DoD says CI runs `make test`                                                                    | NFR-4, `checks.md`, ADR, DoD                              |
+| `check` = format, lint, types, deps, `test:unit`, `test:coverage`, build; pre-push keeps plain `npm test`               | `checks.md` Commands                                      |
+| 100 % branches and functions per file, FR-1 files only (coverage `include`); ≥ 90 % in total for `bookings/application` | NFR-1, AC-1, AC-2, `checks.md`                            |
+| Total score, no disable comments, no `excludedMutations` or ignorers; `ignorePatterns` allowed                          | NFR-2, AC-9, ADR, `checks.md`                             |
+| Scope stays; PostgreSQL-only mutants are "acceptable"                                                                   | ADR Consequences                                          |
+| Test sets per command, Stryker uses `vitest.config.ts`, `*.e2e.test.ts` excluded                                        | `checks.md`                                               |
+| E2E env mapping, port 3100, database-name check, PostgreSQL stays up                                                    | `checks.md` Environment, NFR-3, AC-5, AC-7                |
+| E2E uses only `fetch`, no imports from `src/` or `test/support/`; `seed-ids.ts` checked by a test in `test/app/`        | FR-3, AC-4, `checks.md`                                   |
+| Only the full-path test reads `/me/bookings`, with its own user                                                         | NFR-3                                                     |
+| `npm ci` is a prerequisite, `.env` / `.env.example`, missing databases created                                          | FR-4, AC-6                                                |
+| Windows without `make`, `Makefile` review                                                                               | NFR-5, AC-11                                              |
+| Top-3 gaps by risk, `before.json`, matched by file, location and mutator                                                | FR-7, AC-10                                               |
+| `reports/` and `.stryker-tmp/` in the Prettier, git and ESLint ignores                                                  | `checks.md`                                               |
+| `test/integration/` renamed to `test/app/`                                                                              | `checks.md` (the rename itself is part of implementation) |
+
+I also checked two details the new wording depends on:
+
+- The smoke test still proves "starts without `DATABASE_URL`", even though `test-all.mjs` passes database URLs to `check`, because it clears the variable itself (`vi.stubEnv`).
+- `test/e2e/seed-ids.ts` is type-checked, because `tsconfig.json` includes `test/`.
+
+### Coverage of FR/NFR by ACs
+
+Every FR and NFR is covered by an AC, and every part I flagged earlier now has a check. The only gap left is the old `.env` case above.
+
+Once that one line is in FR-4 or `checks.md`, I have nothing left to raise on this spec.
