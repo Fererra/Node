@@ -89,3 +89,81 @@ I read the spec, ADR-0005, all four `standards/` files, `docs/architecture.md`, 
 12. **AC-8:** how are the top 3 picked? What if there are fewer than 3 real gaps? Should the "before" report be kept, e.g. as `reports/mutation/before.json`?
 13. **`test/integration/`:** rename it, since those tests run in memory, or add it to the spec's layout list?
 14. **Missing ACs:** should I suggest new ACs for NFR-5 and the parts of NFR-1 through NFR-4 that aren't covered, or will you write them?
+
+---
+
+## Prompt 2
+
+> My answers:
+>
+> 1: CI runs Docker Compose like local runs; the service container goes away.
+> 2: make test = check (format, lint, types, deps, build) with coverage instead of plain npm test (no double run) + test:func + E2E.
+> 3: 100 % per file (perFile) for the FR-1 files, from a unit-only run (test:unit). For files without branches, every exported function has a test. ≥ 90 % for bookings/application comes from the in-memory run.
+> 4: Stryker's total mutation score. No // Stryker disable comments: equivalent mutants stay in the report and are classified.
+> 5: Scope stays; PostgreSQL-only mutants are "acceptable". "or the scope is narrowed" is removed from the ADR.
+> 6: E2E database reset and reseeded once per run; tests use different seats. The run refuses to start if E2E_DATABASE_URL equals DATABASE_URL or TEST_DATABASE_URL (checks.md: any two of the three).
+> 7: test/e2e/ imports nothing from src/ (ESLint no-restricted-imports), only fetch to localhost:3100.
+> 8: Both 201 replay and 422 reused key; the path ends with the seat free again.
+> 9: Stop at the first failing step; the server is always stopped; PostgreSQL stays up.
+> 10: npm ci is a prerequisite (separate CI step). The script reads .env or .env.example; it creates missing cinema_test / cinema_e2e databases itself, so an old volume is fine.
+> 11: npm run test:all must work on Windows without make: orchestration in scripts/test-all.mjs, the Makefile only calls it.
+> 12: Top-3 = real gaps by risk to booking correctness; all of them if fewer than 3. Before report kept as reports/mutation/before.json. reports/ in .prettierignore, .stryker-tmp/ in .gitignore.
+> 13: test/integration/ will be renamed to test/app/.
+> 14: I wrote the ACs myself; fixing gaps is now FR-7.
+>
+> Files updated locally, not committed: specs/03-testing.md, adr/0005-testing-strategy.md, standards/checks.md, standards/definition-of-done.md. Re-read the diff and check it against my answers. Anything unresolved or contradictory? Is every FR/NFR covered by an AC? Do not change any files.
+
+## Answer 2
+
+Your four files match almost all of your answers. Answers 1, 5, 8, 11, 12, 13 and 14 are fully reflected, and the spec stays within one page (55 lines, shorter than spec 02). A few places are still open, and two are real problems. I didn't change any files.
+
+### Real problems
+
+**1. The unit-only run doesn't say which tests it runs, so "unit tests alone" can still leak (FR-1, NFR-1, answer 3).** `checks.md:23` still defines unit tests as `test/unit/` plus `src/**/*.test.ts`. That glob also matches:
+
+- `src/app/smoke.test.ts` and the other `src/app/*.test.ts`, which build the app with `buildApp`;
+- the in-memory repository tests in `src/modules/*/infrastructure/*.test.ts`. `in-memory-bookings.repository.test.ts` calls `listByUser`, which runs `compareText`.
+
+So `test:unit` would count those tests toward the FR-1 files' 100 %, which is exactly what answer 3 rules out. You need to decide:
+
+- which files `test:unit` includes;
+- where the leftover `src/**` tests and `scripts/*.test.mjs` run (in `test:coverage`?), so that `check` without plain `npm test` still runs all of them;
+- whether `check` stops reusing `check:fast`. Pre-push should keep plain `npm test`, but `check` now needs the two coverage runs. The docs don't say this anywhere.
+
+**2. E2E can't get a user ID without importing from `src/` (answer 7).** Seed IDs live in `src/app/seed.ts`, and `test/support/client.ts:2` imports them from there. Movie, showtime and seat IDs can be found through the API. A user ID for `X-User-Id` can't, because there's no users endpoint. Also, ESLint `no-restricted-imports` only checks direct imports, so `test/e2e/ → test/support/client.ts → src/` would get past it. How should E2E get user IDs: hard-coded UUIDs in `test/e2e/`, or environment variables? And should the rule also ban `test/support/`?
+
+**3. `STORAGE=postgres` from `.env` will reach the in-memory runs (answer 10).** Both `.env` and `.env.example` set `STORAGE=postgres`, and `test/support/app.ts:29` reads `process.env.STORAGE ?? 'memory'`. If `test-all.mjs` loads either file into the environment and then runs `check`, the "in-memory" tests run on PostgreSQL in parallel against `cinema_test`. That's flaky at best, and the `bookings/application` coverage would no longer come from memory. The script should load only the URLs, or force `STORAGE=memory` for the `check` step. Worth one line in `checks.md`.
+
+### Gaps and loose wording
+
+- **AC-1's check doesn't cover "every exported function has a test".** For files with zero branches (`domain/booking.ts`, `kernel/uuid.ts`), skipping a test can't lower branch coverage. A `functions: 100` per-file threshold in `test:unit` would make AC-1 checkable. "Skipping one test fails the threshold" also only holds for a test that is the _only_ one covering some branch, so name that test.
+- **AC-2:** "skipping a test below the threshold fails it" is hard to follow. Something like "lowering coverage below 90 % (e.g. skipping `<file>`) fails the run" would be clearer.
+- **NFR-2 (answer 4):** it says "Stryker mutation score" but not _total_. Stryker's default is the total score, but writing "total (not based on covered code)" settles it. AC-9 searches only for `Stryker disable` comments. Mutants can also be excluded in `stryker.config` (`mutator.excludedMutations`, `ignorers`, `ignoreStatic`), so the rule should forbid those too.
+- **NFR-3 vs `checks.md`:** the spec compares `E2E_DATABASE_URL` with the other two URLs, while `checks.md` says "any two of the three". There's no conflict (`testDatabaseUrl()` already checks test against dev), but the spec is the weaker of the two. Also, comparing strings misses `localhost` vs `127.0.0.1`. Comparing host, port and database name would catch that.
+- **NFR-3 "order doesn't matter":** different seats aren't enough if two E2E tests use the same user, because `GET /me/bookings` returns every booking of that user. Either assert only on your own booking IDs, or give each test its own user.
+- **Answer 9 isn't written down:** nothing says "PostgreSQL stays up". AC-7's "the server is stopped" needs a check, e.g. port 3100 is free afterwards.
+- **Answer 10:**
+  - `.env.example` has no `E2E_DATABASE_URL` yet. That's an implementation step, but FR-4 depends on it.
+  - "creates missing databases, so an old volume is fine" has no AC. You could add it to AC-6, e.g. "with a volume that has no `cinema_e2e`".
+  - `npm ci` as a prerequisite appears only in AC-6, not in FR-4.
+- **`.stryker-tmp/` (answer 12):** Prettier respects `.gitignore`, but ESLint's flat config doesn't. `eslint.config.mjs:6` ignores only `dist/` and `coverage/`, so a leftover sandbox would get linted.
+- **AC-10:** mutant IDs in the Stryker JSON are renumbered on every run, so `before.json` and `mutation.json` have to be matched by file, location and mutator. That works here because FR-7 changes only tests, but say so in `docs/mutation.md`.
+
+### Coverage of FR/NFR by ACs
+
+Every FR and NFR now has an AC. Four parts are still unchecked:
+
+| Requirement | Unchecked part                                                                           |
+| ----------- | ---------------------------------------------------------------------------------------- |
+| FR-1        | "no I/O"                                                                                 |
+| FR-4        | the `.env.example` fallback (CI only tests it implicitly) and creating missing databases |
+| NFR-4       | "its last report is committed" (AC-8 only looks at the local `reports/mutation/`)        |
+| NFR-5       | "the `Makefile` only calls npm scripts" (a one-line review check would do)               |
+
+### Questions
+
+1. Which files exactly go into `test:unit` and which into `test:coverage`, and what replaces `check:fast` inside `check`?
+2. How does E2E get user IDs without `src/`, and does the import ban also cover `test/support/`?
+3. Should `test-all.mjs` force `STORAGE=memory` for `check`, or load only the URLs from `.env`?
+4. Should I add `functions: 100` to the FR-1 per-file threshold, and write "total score, no exclusions in Stryker config" in NFR-2?
+5. Should the four unchecked parts in the table get AC wording, or is that enough for you?
