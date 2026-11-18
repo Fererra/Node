@@ -167,3 +167,66 @@ Every FR and NFR now has an AC. Four parts are still unchecked:
 3. Should `test-all.mjs` force `STORAGE=memory` for `check`, or load only the URLs from `.env`?
 4. Should I add `functions: 100` to the FR-1 per-file threshold, and write "total score, no exclusions in Stryker config" in NFR-2?
 5. Should the four unchecked parts in the table get AC wording, or is that enough for you?
+
+---
+
+## Prompt 3
+
+> Round 2 answers:
+>
+> 1: test:unit runs only test/unit/\*\*; src/shared/retry.test.ts moves to test/unit/. All other tests (src/\*\*/\*.test.ts, scripts/\*.test.mjs, test/scenarios/, test/app/) run in test:coverage. check no longer reuses check:fast: format, lint, typecheck, deps, test:unit, test:coverage, build. Pre-push (check:fast) keeps plain npm test.
+> 2: E2E user ids are hard-coded in test/e2e/seed-ids.ts: fixed seed UUIDs are part of the seed contract. ESLint bans test/e2e/ from importing both src/ and test/support/.
+> 3: test-all.mjs takes only database URLs from .env and forces STORAGE=memory for the check step.
+> 4: Yes: functions 100 per file for FR-1; NFR-2 is the total score with no exclusions in the Stryker config.
+> 5: Added to existing ACs: AC-1 (functions, no I/O imports), AC-6 (no .env, existing volume), AC-8 (committed report), AC-11 (Makefile review). Also: .stryker-tmp/ and reports/ in the ESLint ignores; before.json and mutation.json are compared by file, location and mutator.
+>
+> Files updated locally, not committed. Re-read the diff and check it against my answers from both rounds. Anything unresolved or contradictory? Do not change any files.
+
+## Answer 3
+
+All of your round-2 answers made it into the spec and `checks.md`, and the four files pass Prettier. I found three new problems that the new wording creates, plus a few small points from round 2 that are still open. I didn't change any files.
+
+### New problems
+
+**1. Nothing keeps E2E tests out of the in-memory runs.** E2E files are named `test/e2e/*.e2e.test.ts`. The `vitest.config.ts` include list is `test/**/*.test.ts`, which matches them. So:
+
+- plain `npm test` (pre-push) would run them with no server and fail;
+- `test:coverage` would do the same;
+- Stryker, which runs these tests against every mutant, would too.
+
+Round 1 also removed the line from `checks.md` that said "`npm test` excludes `*.pg.test.ts`". The docs no longer say what `npm test` leaves out. One line would cover both: "`npm test`, `test:coverage` and Stryker exclude `*.pg.test.ts` and `*.e2e.test.ts`".
+
+**2. The 100 % per-file thresholds must apply only to the FR-1 files.** `retry.ts` imports `src/shared/errors.ts`. That file has 4 `AppError` subclasses, and unit tests only ever create `ServiceUnavailableError`. If the per-file thresholds apply to every file the unit run loads, `errors.ts` fails the functions threshold. NFR-1 says "for the FR-1 files", so the requirement is right; the risk is in how it gets implemented. Limit the coverage `include` to the FR-1 files in `test:unit`, or attach the thresholds to those globs only. Also, NFR-1 doesn't say whether the ≥ 90 % for `bookings/application` is per file or a total over the folder. I assume a total.
+
+**3. Nothing says how the E2E server gets its database and port.** The server reads `DATABASE_URL` and `PORT`, not `E2E_DATABASE_URL`. `db:migrate` and `db:seed` also read `DATABASE_URL`, and they load `.env` through `--env-file-if-exists`. Values already in the environment take precedence over `.env`, so this works if the script sets them. Neither FR-4 nor `checks.md` says it does. One line would close it: "the server, `db:migrate` and `db:seed` get `DATABASE_URL=$E2E_DATABASE_URL`, and the server gets `PORT=3100` and `STORAGE=postgres`."
+
+### Smaller points
+
+- **Stryker's test set:** `test:unit` and `test:coverage` are two separate runs, but the vitest runner takes one config. Name the config Stryker uses. Presumably it's `vitest.config.ts`, the plain `npm test` set, once E2E files are excluded (problem 1).
+- **`checks.md:24`** describes `src/**/*.test.ts` as "everything that isn't a pure unit test". But `src/shared/clock.test.ts` and `src/shared/db/errors.test.ts` _are_ pure. More accurate: "unit tests outside the FR-1 scope may stay in `src/` and run here."
+- **The ADR is behind the spec:**
+  - `adr/0005-testing-strategy.md:58` still says only "branch thresholds"; NFR-1 now has branch and function thresholds.
+  - Line 61 forbids `// Stryker disable` comments but not exclusions in the Stryker config.
+- **AC-9** searches only for `Stryker disable` comments in `src/`. NFR-2 now also forbids exclusions in the config, so the check should look at the Stryker config too. "Exclusions" should also be made specific, e.g. "no `mutator.excludedMutations` or `ignorers`". Otherwise it could be read as banning `ignorePatterns`, which Stryker needs for `reports/`.
+- **`test/e2e/seed-ids.ts`** copies UUIDs from `src/app/seed.ts`. If the two drift apart, E2E fails with a clear 401, which is acceptable. An in-memory test comparing the two files would catch the drift earlier. That test can import both files because it doesn't live in `test/e2e/`.
+
+### Still open from round 2
+
+All small; you may decide they're fine as they are.
+
+- AC-1 says "skipping one test fails the threshold", and AC-2's wording is unchanged. Neither names the test to skip.
+- Nothing checks AC-7's "the server is stopped" (e.g. port 3100 is free afterwards). "PostgreSQL stays up" isn't written anywhere.
+- NFR-3 compares the database URLs as strings, so `localhost` vs `127.0.0.1` would get through.
+- Different seats don't make E2E tests independent if they share a user, because `GET /me/bookings` returns every booking of that user.
+- `npm ci` as a prerequisite is in AC-6 but not in FR-4.
+
+### Coverage of FR/NFR by ACs
+
+Every FR and NFR is covered by at least one AC. The one part still unchecked is NFR-2's "no exclusions in the Stryker config" (see AC-9 above).
+
+### Questions
+
+1. Should `checks.md` list which runs exclude `*.e2e.test.ts` and `*.pg.test.ts`, and name the config Stryker uses?
+2. Should the env mapping for the E2E server (`DATABASE_URL`, `PORT`, `STORAGE`) go in FR-4 or only in `checks.md`?
+3. Is the ≥ 90 % for `bookings/application` a total over the folder?
+4. Do you want to update the ADR for function thresholds and Stryker config exclusions, or leave it to the spec?
