@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
-import { ServiceUnavailableError } from './errors.js';
-import type { Logger } from './logger.js';
-import { isRetryableError, withRetry } from './retry.js';
+import { ServiceUnavailableError } from '../../src/shared/errors.js';
+import type { Logger } from '../../src/shared/logger.js';
+import { isRetryableError, withRetry } from '../../src/shared/retry.js';
 
 function pgError(code: string): Error & { code: string } {
   return Object.assign(new Error(`pg error ${code}`), { code });
