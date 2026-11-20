@@ -63,7 +63,7 @@ Then:
 
 ```bash
 npm ci
-cp .env.example .env            # DATABASE_URL, TEST_DATABASE_URL, STORAGE=postgres
+cp .env.example .env            # DATABASE_URL, TEST_DATABASE_URL, E2E_DATABASE_URL, STORAGE=postgres
 docker compose up -d --wait     # PostgreSQL on localhost:55432
 npm run db:migrate && npm run db:seed
 npm run build && npm start
@@ -72,9 +72,26 @@ curl localhost:3000/movies
 
 Without Docker, the app also runs on in-memory data: `STORAGE=memory npm start`.
 
-Checks:
+### Tests
+
+One command runs every test level. It starts PostgreSQL in Docker if needed, creates the test and E2E databases, runs the checks with coverage, the integration tests on PostgreSQL, then starts the server and runs the E2E tests:
 
 ```bash
-npm run check       # format, lint, types, module boundaries, unit and in-memory tests, build
-npm run test:func   # the same scenarios on PostgreSQL (needs the container)
+make test          # or, without make (e.g. on Windows): npm run test:all
+```
+
+Mutation testing (Stryker) runs by hand and takes a few minutes:
+
+```bash
+make mutation      # or: npm run mutation
+```
+
+The report is written to `reports/mutation/` (`mutation.html`, `mutation.json`); surviving mutants are classified in [`docs/mutation.md`](docs/mutation.md).
+
+Separate steps:
+
+```bash
+npm run check       # format, lint, types, module boundaries, unit and in-memory tests with coverage, build
+npm run test:func   # integration tests on PostgreSQL
+npm run test:e2e    # E2E tests against a running server
 ```

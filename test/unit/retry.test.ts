@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
-import { ServiceUnavailableError } from './errors.js';
-import type { Logger } from './logger.js';
-import { isRetryableError, withRetry } from './retry.js';
+import { ServiceUnavailableError } from '../../src/shared/errors.js';
+import type { Logger } from '../../src/shared/logger.js';
+import { isRetryableError, withRetry } from '../../src/shared/retry.js';
 
 function pgError(code: string): Error & { code: string } {
   return Object.assign(new Error(`pg error ${code}`), { code });
@@ -111,6 +111,29 @@ describe('isRetryableError', () => {
   it('finds the code in a cause chain (ORM error wrappers)', () => {
     const wrapped = new Error('query failed', { cause: pgError('40P01') });
     expect(isRetryableError(wrapped)).toBe(true);
+  });
+
+  /** `error` wrapped in `levels` errors, so it sits at depth `levels`. */
+  function atDepth(error: unknown, levels: number): unknown {
+    let current = error;
+    for (let i = 0; i < levels; i++) {
+      current = new Error(`wrapper ${String(i)}`, { cause: current });
+    }
+    return current;
+  }
+
+  it('finds the code at depth 4, the last level it looks at', () => {
+    expect(isRetryableError(atDepth(pgError('40P01'), 4))).toBe(true);
+  });
+
+  it('ignores the code at depth 5', () => {
+    expect(isRetryableError(atDepth(pgError('40P01'), 5))).toBe(false);
+  });
+
+  it('returns false for a cyclic cause chain without a code', () => {
+    const cyclic = new Error('cyclic') as Error & { cause: unknown };
+    cyclic.cause = cyclic;
+    expect(isRetryableError(cyclic)).toBe(false);
   });
 
   it.each([
