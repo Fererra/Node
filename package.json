@@ -25,7 +25,8 @@
     "db:seed": "npm run build && node --env-file-if-exists=.env dist/app/cli/seed.js",
     "test:func": "vitest run --config vitest.func.config.ts",
     "test:e2e": "vitest run --config vitest.e2e.config.ts",
-    "test:all": "node scripts/test-all.mjs"
+    "test:all": "node scripts/test-all.mjs",
+    "mutation": "stryker run"
   },
   "lint-staged": {
     "*": "prettier --check --ignore-unknown",
@@ -35,6 +36,9 @@
     "@commitlint/cli": "21.2.4",
     "@commitlint/config-conventional": "21.2.4",
     "@eslint/js": "10.0.1",
+    "@stryker-mutator/core": "10.1.1",
+    "@stryker-mutator/typescript-checker": "10.1.1",
+    "@stryker-mutator/vitest-runner": "10.1.1",
     "@types/node": "26.6.5",
     "@types/pg": "8.23.1",
     "@vitest/coverage-v8": "5.0.5",
