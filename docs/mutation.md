@@ -56,4 +56,37 @@ Only tests change; the code under test stays the same.
 
 ## Second run (`reports/mutation/mutation.json`)
 
-_To be filled after the fixes: score, the 9 mutants above matched by file, location and mutator, commit hashes._
+After the test fixes in `b9d078a` (report in `f082757`): 98 killed, 1 timeout, 16 survived, 1 no coverage, 116 compile errors. Score: 99 / 116 = **85.34 %**, above the 80 % threshold.
+
+Status of the 9 mutants from "Real gaps", matched by file, location, mutator and replacement:
+
+| #   | File:line:column             | Mutant                              | `before.json` | `mutation.json` |
+| --- | ---------------------------- | ----------------------------------- | ------------- | --------------- |
+| R1  | `bookings.service.ts:66:12`  | `.sort(...)` removed                | Survived      | Killed          |
+| R1  | `bookings.service.ts:68:23`  | `a.row - b.row` -> `+`              | Survived      | Killed          |
+| R1  | `bookings.service.ts:68:40`  | `a.number - b.number` -> `+`        | Survived      | Killed          |
+| R2  | `retry.ts:15:23`             | `depth < 5` -> `true`               | Survived      | Killed          |
+| R2  | `retry.ts:15:23`             | `depth < 5` -> `depth <= 5`         | Survived      | Killed          |
+| R2  | `retry.ts:15:65`             | `depth++` -> `depth--`              | Survived      | Killed          |
+| R3  | `bookings.service.ts:164:13` | `result === 'key-taken'` -> `false` | Survived      | Killed          |
+| R3  | `bookings.service.ts:164:37` | `key-taken` block -> `{}`           | NoCoverage    | Killed          |
+| R3  | `bookings.service.ts:168:13` | `'Idempotency key'` -> `""`         | NoCoverage    | Survived        |
+
+Tests added (`b9d078a`):
+
+- R2 in `test/unit/retry.test.ts`: code `40P01` at depth 4 -> `true`, at depth 5 -> `false`, a cyclic `cause` chain without a code -> `false` and the call returns.
+- R1 and R3 in `test/app/bookings-service.test.ts`: service tests with fake ports. R1 books seats `2/1`, `1/3`, `1/1` and expects `1/1`, `1/3`, `2/1`; R3 makes `save` return `'key-taken'` and expects the winner's booking.
+
+Each new test was checked against its mutant by hand: the mutant was applied, the test failed, the change was reverted (`ai/15-test-strengthening.md`).
+
+### Corrections to the first classification
+
+- `bookings.service.ts:168` (`'Idempotency key'` -> `""`) was wrongly put under R3. It is the message of a `required(...)` guard, like the other `required` messages: it only shows if the second `claimKey` returns nothing, which means broken data and a generic `500`. Reclassified as **acceptable**. R3 itself is fixed: the `key-taken` branch is now executed and its condition is killed.
+
+### Why R1 survived: test data hid the bug
+
+The seed seat ids encode hall, row and number with zero padding, so sorting seats by id already gives row-and-number order. On seed data the `.sort` in `toDto` does nothing, and no HTTP scenario on seed data could catch its removal. The new test uses a service with fake ports and arbitrary ids, so the order comes only from the sort.
+
+### Remaining survivors
+
+16 survivors and 1 no-coverage mutant, all classified above: 15 acceptable (including `:168`), 1 equivalent (`:219`), and none real. Killed vs timeout counts vary between runs (14 timeouts in the first run, 1 in the second), so mutants are matched by location, not by status alone.
