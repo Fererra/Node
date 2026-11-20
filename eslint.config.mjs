@@ -67,6 +67,28 @@ export default tseslint.config(
     },
   },
   {
+    // Spec 03 FR-3, AC-4: E2E tests reach the app only through fetch.
+    files: ['test/e2e/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              regex: '(^|/)(src|support)(/|$)',
+              message:
+                'E2E tests import nothing from src/ or test/support/; use fetch and test/e2e/seed-ids.ts (spec 03 FR-3).',
+            },
+            {
+              regex: '^(pg|drizzle-orm|fastify|@fastify/.*)(/|$)',
+              message: 'E2E tests reach the app only through fetch.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     files: ['**/*.{js,mjs,cjs}'],
     extends: [tseslint.configs.disableTypeChecked],
   },
