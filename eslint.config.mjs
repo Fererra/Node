@@ -41,6 +41,32 @@ export default tseslint.config(
     },
   },
   {
+    // Spec 03 AC-1: unit tests import nothing that does I/O.
+    files: ['test/unit/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              regex: '(^|/)(shared/db|app|support)(/|$)',
+              message:
+                'Unit tests do no I/O: no shared/db/, src/app/ or test/support/ (spec 03 AC-1).',
+            },
+            {
+              regex: '^(node:)?(fs|net|child_process|http|https)(/|$)',
+              message: 'Unit tests do no I/O (spec 03 AC-1).',
+            },
+            {
+              regex: '^(pg|drizzle-orm|fastify)(/|$)',
+              message: 'Unit tests do no I/O (spec 03 AC-1).',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     files: ['**/*.{js,mjs,cjs}'],
     extends: [tseslint.configs.disableTypeChecked],
   },
